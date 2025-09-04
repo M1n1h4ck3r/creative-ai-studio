@@ -43,6 +43,17 @@ export default function TestGeneratePage() {
     }
   }
 
+  const downloadImage = () => {
+    if (!imageUrl) return
+    
+    const link = document.createElement('a')
+    link.href = imageUrl
+    link.download = `gemini-image-${Date.now()}.png`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <h1 className="text-3xl font-bold mb-8">Teste de Geração - Gemini 2.5 Flash Image</h1>
@@ -77,20 +88,29 @@ export default function TestGeneratePage() {
           <CardHeader>
             <CardTitle>Resultado</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             {loading && (
               <div className="aspect-square bg-gray-100 rounded flex items-center justify-center">
                 <div className="text-gray-500">Gerando...</div>
               </div>
             )}
             {imageUrl && (
-              <Image
-                src={imageUrl}
-                alt={prompt}
-                width={400}
-                height={400}
-                className="w-full rounded"
-              />
+              <div className="space-y-4">
+                <Image
+                  src={imageUrl}
+                  alt={prompt}
+                  width={400}
+                  height={400}
+                  className="w-full rounded"
+                />
+                <Button 
+                  onClick={downloadImage}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Download Imagem
+                </Button>
+              </div>
             )}
             {!loading && !imageUrl && (
               <div className="aspect-square bg-gray-50 rounded flex items-center justify-center">
