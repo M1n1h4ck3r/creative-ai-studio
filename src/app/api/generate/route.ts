@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { getProviderManager } from '@/lib/providers/manager'
 import { ProviderType, GenerationOptions } from '@/lib/providers/types'
 import { decrypt } from '@/lib/encryption'
+import type { InsertGeneration, UpdateApiKey } from '@/types/supabase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
           cost_credits: result.metadata?.cost || 0,
           metadata: result.metadata ? JSON.stringify(result.metadata) : null,
           status: 'completed'
-        })
+        } satisfies InsertGeneration)
 
       if (saveError) {
         console.error('Error saving generation:', saveError)
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
       // Update API key last used timestamp
       const { error: updateError } = await supabase
         .from('api_keys')
-        .update({ last_used_at: new Date().toISOString() })
+        .update({ last_used_at: new Date().toISOString() } satisfies UpdateApiKey)
         .eq('user_id', user.id)
         .eq('provider', provider)
         .eq('is_active', true)

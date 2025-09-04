@@ -99,7 +99,7 @@ export class GeminiProvider extends AIProvider {
 
   async validateApiKey(): Promise<boolean> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' })
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
       const result = await model.generateContent('Hello')
       return !!result.response
     } catch (error) {

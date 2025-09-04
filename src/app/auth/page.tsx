@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
@@ -13,7 +13,7 @@ import { Icons } from '@/components/ui/icons'
 import { toast } from 'sonner'
 import { Loader2, Sparkles } from 'lucide-react'
 
-export default function AuthPage() {
+function AuthContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') || '/dashboard'
@@ -207,5 +207,13 @@ export default function AuthPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <AuthContent />
+    </Suspense>
   )
 }

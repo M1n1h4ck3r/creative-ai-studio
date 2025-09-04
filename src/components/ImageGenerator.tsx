@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,7 +24,7 @@ const generationSchema = z.object({
     .string()
     .min(3, 'Prompt deve ter pelo menos 3 caracteres')
     .max(2000, 'Prompt não pode exceder 2000 caracteres'),
-  provider: z.enum(['gemini'] as const),
+  provider: z.enum(['gemini', 'openai'] as const),
   aspectRatio: z.string(),
   style: z.string().optional(),
   negativePrompt: z.string().optional(),
@@ -437,9 +438,11 @@ export default function ImageGenerator() {
           ) : generatedImage ? (
             <div className='space-y-4'>
               <div className='relative group'>
-                <img
+                <Image
                   src={generatedImage.url}
                   alt={generatedImage.prompt}
+                  width={512}
+                  height={512}
                   className='w-full rounded-lg shadow-lg transition-transform duration-300 hover:scale-[1.02]'
                   onError={(e) => {
                     console.error('Image failed to load:', e)

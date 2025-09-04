@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
 import { encrypt } from '@/lib/encryption'
+import type { InsertApiKey, UpdateApiKey } from '@/types/supabase'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
     
-    if (authError || !user) {
+    if (!session?.user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Please login to continue' },
         { status: 401 }
       )
     }
+    
+    const user = session.user
 
     const { provider, key, keyName } = await request.json()
 
@@ -29,7 +32,7 @@ export async function POST(request: NextRequest) {
     // First, deactivate any existing key for this provider
     const { error: deactivateError } = await supabase
       .from('api_keys')
-      .update({ is_active: false })
+      .update({ is_active: false } satisfies UpdateApiKey)
       .eq('user_id', user.id)
       .eq('provider', provider)
 
@@ -46,7 +49,7 @@ export async function POST(request: NextRequest) {
         encrypted_key: encryptedKey,
         key_name: keyName || `${provider} Key`,
         is_active: true
-      })
+      } satisfies InsertApiKey)
       .select()
       .single()
 

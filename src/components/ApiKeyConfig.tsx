@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,15 +13,9 @@ import { toast } from 'sonner'
 import { Eye, EyeOff, Key, Check, X, AlertCircle, Settings, Sparkles, Zap } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
+import type { ApiKey as DatabaseApiKey } from '@/types/supabase'
 
-interface ApiKey {
-  id: string
-  provider: string
-  key_name: string | null
-  is_active: boolean
-  last_used_at: string | null
-  created_at: string
-}
+type ApiKey = DatabaseApiKey
 
 interface Provider {
   id: string
@@ -72,13 +66,7 @@ export default function ApiKeyConfig() {
   const [selectedProvider, setSelectedProvider] = useState<string>('gemini')
   const supabase = createClient()
 
-  useEffect(() => {
-    if (user) {
-      loadApiKeys()
-    }
-  }, [user])
-
-  const loadApiKeys = async () => {
+  const loadApiKeys = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('api_keys')
@@ -93,7 +81,13 @@ export default function ApiKeyConfig() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.id, supabase])
+
+  useEffect(() => {
+    if (user) {
+      loadApiKeys()
+    }
+  }, [user, loadApiKeys])
 
   const saveApiKey = async (provider: string, key: string, keyName?: string) => {
     if (!user) return
@@ -240,7 +234,7 @@ export default function ApiKeyConfig() {
                             <Button
                               variant='outline'
                               size='sm'
-                              onClick={() => testApiKey(provider.id, existingKey.encrypted_key)}
+                              onClick={() => testApiKey(provider.id, existingKey.encrypted_key || '')}
                               disabled={testingKey === provider.id}
                             >
                               {testingKey === provider.id ? 'Testando...' : 'Testar'}

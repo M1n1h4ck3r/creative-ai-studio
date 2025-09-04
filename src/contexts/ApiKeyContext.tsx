@@ -1,18 +1,13 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from './AuthContext'
 import { decrypt } from '@/lib/encryption'
 import { toast } from 'sonner'
+import type { ApiKey as DatabaseApiKey, UpdateApiKey } from '@/types/supabase'
 
-interface ApiKey {
-  id: string
-  provider: string
-  key_name: string | null
-  is_active: boolean
-  last_used_at: string | null
-  created_at: string
+interface ApiKey extends DatabaseApiKey {
   decrypted_key?: string
 }
 
@@ -33,16 +28,7 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
-  useEffect(() => {
-    if (user) {
-      loadApiKeys()
-    } else {
-      setApiKeys([])
-      setLoading(false)
-    }
-  }, [user])
-
-  const loadApiKeys = async () => {
+  const loadApiKeys = useCallback(async () => {
     if (!user) return
 
     try {
@@ -71,7 +57,16 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
+
+  useEffect(() => {
+    if (user) {
+      loadApiKeys()
+    } else {
+      setApiKeys([])
+      setLoading(false)
+    }
+  }, [user, loadApiKeys])
 
   const refreshApiKeys = async () => {
     await loadApiKeys()
@@ -93,7 +88,7 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
     try {
       const { error } = await supabase
         .from('api_keys')
-        .update({ last_used_at: new Date().toISOString() })
+        .update({ last_used_at: new Date().toISOString() } satisfies UpdateApiKey)
         .eq('user_id', user.id)
         .eq('provider', provider)
         .eq('is_active', true)
