@@ -157,12 +157,26 @@ export default function ImageGenerator() {
       }
 
       if (result.success) {
-        setGeneratedImage({
+        const generatedImageData = {
           url: result.imageUrl,
           prompt: data.prompt,
           provider: data.provider,
           metadata: result.metadata
-        })
+        }
+        
+        setGeneratedImage(generatedImageData)
+        
+        // Save to history
+        if ((window as any).saveImageToHistory) {
+          (window as any).saveImageToHistory({
+            url: result.imageUrl,
+            prompt: data.prompt,
+            provider: data.provider,
+            aspectRatio: data.aspectRatio,
+            metadata: result.metadata
+          })
+        }
+        
         toast.success('Imagem gerada com sucesso!')
       } else {
         throw new Error(result.error || 'Falha na geração')
@@ -180,17 +194,28 @@ export default function ImageGenerator() {
     if (!generatedImage) return
 
     try {
-      const response = await fetch(generatedImage.url)
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `generated-image-${Date.now()}.png`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      // Check if it's a base64 data URL (for Gemini images)
+      if (generatedImage.url.startsWith('data:')) {
+        const a = document.createElement('a')
+        a.href = generatedImage.url
+        a.download = `gemini-image-${Date.now()}.png`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+      } else {
+        // Regular URL (for other providers)
+        const response = await fetch(generatedImage.url)
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `generated-image-${Date.now()}.png`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      }
       
       toast.success('Download iniciado!')
     } catch (error) {
