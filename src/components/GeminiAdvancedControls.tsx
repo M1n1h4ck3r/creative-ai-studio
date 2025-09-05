@@ -62,7 +62,7 @@ export default function GeminiAdvancedControls({
   onFilesChange, 
   className 
 }: GeminiAdvancedControlsProps) {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(true) // Iniciar aberto por padrão
   const [useSeed, setUseSeed] = useState(!!config.seed)
   const [stopSequenceInput, setStopSequenceInput] = useState('')
 
@@ -171,7 +171,7 @@ export default function GeminiAdvancedControls({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Settings className="h-5 w-5" />
-                <CardTitle>Controles Avançados do Gemini</CardTitle>
+                <CardTitle>🎛️ Controles Avançados do Gemini</CardTitle>
                 {attachedFiles.length > 0 && (
                   <Badge variant="secondary">{attachedFiles.length} arquivo(s)</Badge>
                 )}
