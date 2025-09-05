@@ -14,10 +14,11 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
-import { Loader2, Download, Sparkles, Wand2, AlertCircle, DollarSign } from 'lucide-react'
+import { Loader2, Download, Sparkles, Wand2, AlertCircle, DollarSign, Template } from 'lucide-react'
 import { useApiKeys } from '@/contexts/ApiKeyContext'
 import { getProviderManager } from '@/lib/providers/manager'
 import { ProviderType, GenerationOptions } from '@/lib/providers/types'
+import PromptTemplates from '@/components/PromptTemplates'
 
 const generationSchema = z.object({
   prompt: z
@@ -67,6 +68,7 @@ export default function ImageGenerator() {
   const [progress, setProgress] = useState(0)
   const [availableProviders, setAvailableProviders] = useState<ProviderType[]>([])
   const [costEstimate, setCostEstimate] = useState<{ provider: string; cost: number } | null>(null)
+  const [showTemplates, setShowTemplates] = useState(false)
 
   const form = useForm<GenerationFormData>({
     resolver: zodResolver(generationSchema),
@@ -223,6 +225,13 @@ export default function ImageGenerator() {
     }
   }
 
+  const handleTemplateSelect = (template: any) => {
+    form.setValue('prompt', template.prompt)
+    form.setValue('aspectRatio', template.aspectRatio)
+    setShowTemplates(false)
+    toast.success(`Template "${template.title}" aplicado!`)
+  }
+
   if (availableProviders.length === 0) {
     return (
       <Card className='max-w-2xl mx-auto'>
@@ -245,16 +254,34 @@ export default function ImageGenerator() {
   }
 
   return (
-    <div className='max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6'>
-      {/* Generation Form */}
-      <Card>
+    <div className='max-w-7xl mx-auto space-y-6'>
+      {/* Templates Section */}
+      {showTemplates && (
+        <PromptTemplates 
+          onSelectTemplate={handleTemplateSelect}
+        />
+      )}
+      
+      <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
+        {/* Generation Form */}
+        <Card>
         <CardHeader>
-          <div className='flex items-center space-x-2'>
-            <Wand2 className='h-5 w-5' />
-            <CardTitle>Gerar Imagem</CardTitle>
+          <div className='flex items-center justify-between'>
+            <div className='flex items-center space-x-2'>
+              <Wand2 className='h-5 w-5' />
+              <CardTitle>Gerar Imagem</CardTitle>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowTemplates(!showTemplates)}
+            >
+              <Template className='h-4 w-4 mr-2' />
+              Templates
+            </Button>
           </div>
           <CardDescription>
-            Descreva a imagem que você quer criar
+            Descreva a imagem que você quer criar ou use um template
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -524,6 +551,7 @@ export default function ImageGenerator() {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }
