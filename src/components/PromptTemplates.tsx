@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
+// import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Search, Palette, Camera, Sparkles, Heart, Building2, User, Gamepad2 } from 'lucide-react'
@@ -190,7 +190,7 @@ export default function PromptTemplates({ onSelectTemplate, className }: PromptT
           </TabsList>
 
           <TabsContent value={selectedCategory} className="mt-4">
-            <ScrollArea className="h-[400px]">
+            <div className="max-h-[400px] overflow-y-auto">
               <div className="space-y-3">
                 {filteredTemplates.map((template) => (
                   <Card 
@@ -233,7 +233,7 @@ export default function PromptTemplates({ onSelectTemplate, className }: PromptT
                   </div>
                 )}
               </div>
-            </ScrollArea>
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>

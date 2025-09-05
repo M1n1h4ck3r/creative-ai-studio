@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
-import { Loader2, Download, Sparkles, Wand2, AlertCircle, DollarSign, Template } from 'lucide-react'
+import { Loader2, Download, Sparkles, Wand2, AlertCircle, DollarSign, FileText } from 'lucide-react'
 import { useApiKeys } from '@/contexts/ApiKeyContext'
 import { getProviderManager } from '@/lib/providers/manager'
 import { ProviderType, GenerationOptions } from '@/lib/providers/types'
@@ -276,7 +276,7 @@ export default function ImageGenerator() {
               size="sm"
               onClick={() => setShowTemplates(!showTemplates)}
             >
-              <Template className='h-4 w-4 mr-2' />
+              <FileText className='h-4 w-4 mr-2' />
               Templates
             </Button>
           </div>
