@@ -10,6 +10,9 @@ import {
 import { GeminiProvider } from './gemini'
 import { OpenAIProvider } from './openai'
 import { StableDiffusionProvider } from './stable-diffusion'
+import { AnthropicProvider } from './anthropic'
+import { HuggingFaceProvider } from './huggingface'
+import { StabilityProvider } from './stability'
 import { decrypt } from '../encryption'
 
 export class ProviderManager {
@@ -50,6 +53,12 @@ export class ProviderManager {
       case 'replicate':
       case 'stable-diffusion':
         return new StableDiffusionProvider(apiKey)
+      case 'anthropic':
+        return new AnthropicProvider(apiKey)
+      case 'huggingface':
+        return new HuggingFaceProvider(apiKey)
+      case 'stability':
+        return new StabilityProvider(apiKey)
       default:
         console.warn(`Unknown provider type: ${type}`)
         return null
@@ -244,7 +253,10 @@ export class ProviderManager {
 
   // Get provider statistics
   getProviderStats(): Array<{ provider: ProviderType; info: ProviderInfo; hasApiKey: boolean }> {
-    const allProviderTypes: ProviderType[] = ['gemini', 'openai', 'replicate', 'stable-diffusion']
+    const allProviderTypes: ProviderType[] = [
+      'gemini', 'openai', 'replicate', 'stable-diffusion', 
+      'anthropic', 'huggingface', 'stability'
+    ]
     
     return allProviderTypes.map(type => {
       const provider = this.getProvider(type)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -20,6 +20,7 @@ import { getProviderManager } from '@/lib/providers/manager'
 import { ProviderType, GenerationOptions } from '@/lib/providers/types'
 import PromptTemplates from '@/components/PromptTemplates'
 import GeminiAdvancedControls from '@/components/GeminiAdvancedControls'
+import { analytics } from '@/lib/analytics'
 
 const generationSchema = z.object({
   prompt: z

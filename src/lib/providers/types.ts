@@ -30,8 +30,15 @@ export interface GenerationOptions {
   quality?: 'standard' | 'hd'
   steps?: number
   guidance?: number
+  guidanceScale?: number
   seed?: number
   model?: string
+  temperature?: number
+  maxLength?: number
+  systemPrompt?: string
+  samples?: number
+  strength?: number
+  stylePreset?: string
   geminiConfig?: GeminiConfig
   attachedFiles?: AttachedFile[]
 }
@@ -40,15 +47,28 @@ export interface GenerationResult {
   success: boolean
   imageUrl?: string
   imageData?: string // Raw base64 data without data URL prefix
+  content?: string // For text generation results
   error?: string
+  model?: string
+  finishReason?: string
+  usage?: {
+    promptTokens: number
+    completionTokens: number
+    totalTokens: number
+  }
   metadata?: {
-    model: string
+    model?: string
     seed?: number
     steps?: number
     guidance?: number
-    generationTime: number
+    generationTime?: number
     cost?: number
     textResponse?: string // For multimodal responses that include text
+    width?: number
+    height?: number
+    guidance_scale?: number
+    strength?: number
+    finish_reason?: string
   }
 }
 
@@ -141,7 +161,7 @@ export abstract class AIProvider {
   }
 }
 
-export type ProviderType = 'gemini' | 'openai' | 'replicate' | 'stable-diffusion'
+export type ProviderType = 'gemini' | 'openai' | 'replicate' | 'stable-diffusion' | 'anthropic' | 'huggingface' | 'stability'
 
 export interface ProviderConfig {
   type: ProviderType

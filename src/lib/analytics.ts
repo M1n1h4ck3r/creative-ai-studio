@@ -1,6 +1,6 @@
 import { Analytics } from '@vercel/analytics/react'
 
-// Analytics events for Creative AI Studio
+// Enhanced analytics with multiple providers
 export const trackEvent = (eventName: string, properties?: Record<string, any>) => {
   if (typeof window === 'undefined') return
 
@@ -10,10 +10,72 @@ export const trackEvent = (eventName: string, properties?: Record<string, any>) 
     window.va?.track(eventName, properties)
   }
 
+  // Google Analytics 4
+  if (process.env.NEXT_PUBLIC_GA_ID && typeof window !== 'undefined') {
+    // @ts-ignore - Google Analytics
+    window.gtag?.('event', eventName, {
+      ...properties,
+      event_category: 'ai_studio',
+      timestamp: new Date().toISOString(),
+    })
+  }
+
+  // Mixpanel tracking
+  if (process.env.NEXT_PUBLIC_MIXPANEL_TOKEN && typeof window !== 'undefined') {
+    // @ts-ignore - Mixpanel
+    window.mixpanel?.track(eventName, {
+      ...properties,
+      app: 'creative-ai-studio',
+      timestamp: Date.now(),
+      user_agent: navigator.userAgent,
+      url: window.location.href,
+    })
+  }
+
   // Custom event tracking for debugging
   if (process.env.NODE_ENV === 'development') {
-    console.log('📊 Analytics Event:', { eventName, properties })
+    console.log('📊 Analytics Event:', { eventName, properties, timestamp: new Date().toISOString() })
   }
+
+  // Send to custom analytics endpoint
+  if (process.env.NEXT_PUBLIC_CUSTOM_ANALYTICS_ENDPOINT) {
+    fetch('/api/analytics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: eventName,
+        properties: {
+          ...properties,
+          timestamp: new Date().toISOString(),
+          session_id: getSessionId(),
+          user_id: getUserId(),
+        }
+      })
+    }).catch(err => console.warn('Analytics endpoint failed:', err))
+  }
+}
+
+// Session management for analytics
+let sessionId: string | null = null
+let userId: string | null = null
+
+const getSessionId = (): string => {
+  if (!sessionId) {
+    sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('analytics_session_id', sessionId)
+    }
+  }
+  return sessionId
+}
+
+const getUserId = (): string | null => {
+  if (!userId && typeof window !== 'undefined') {
+    userId = localStorage.getItem('analytics_user_id') || 
+             `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    localStorage.setItem('analytics_user_id', userId)
+  }
+  return userId
 }
 
 // Predefined events for the Creative AI Studio
