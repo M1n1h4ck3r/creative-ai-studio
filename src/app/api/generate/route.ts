@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find the requested provider's API key
-    const providerKey = apiKeys.find(key => key.provider === provider)
+    const providerKey = apiKeys.find((key: any) => key.provider === provider)
     if (!providerKey) {
       return NextResponse.json(
         { success: false, error: `No API key found for ${provider}` },
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
           cost_credits: result.metadata?.cost || 0,
           metadata: result.metadata ? JSON.stringify(result.metadata) : null,
           status: 'completed'
-        } satisfies InsertGeneration)
+        } as any)
 
       if (saveError) {
         console.error('Error saving generation:', saveError)
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
       // Update API key last used timestamp
       const { error: updateError } = await supabase
         .from('api_keys')
-        .update({ last_used_at: new Date().toISOString() } satisfies UpdateApiKey)
+        .update({ last_used_at: new Date().toISOString() } as any)
         .eq('user_id', user.id)
         .eq('provider', provider)
         .eq('is_active', true)

@@ -44,7 +44,7 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
 
       // Decrypt the keys client-side is not secure
       // Keys should only be decrypted server-side when needed
-      const keysWithoutDecryption = (data || []).map(key => ({
+      const keysWithoutDecryption: ApiKey[] = (data || []).map((key: any) => ({
         ...key,
         // Don't decrypt keys on client side for security
         decrypted_key: undefined
@@ -88,7 +88,7 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
     try {
       const { error } = await supabase
         .from('api_keys')
-        .update({ last_used_at: new Date().toISOString() } satisfies UpdateApiKey)
+        .update({ last_used_at: new Date().toISOString() } as any)
         .eq('user_id', user.id)
         .eq('provider', provider)
         .eq('is_active', true)

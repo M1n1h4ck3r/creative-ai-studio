@@ -67,11 +67,13 @@ export default function ApiKeyConfig() {
   const supabase = createClient()
 
   const loadApiKeys = useCallback(async () => {
+    if (!user?.id) return
+    
     try {
       const { data, error } = await supabase
         .from('api_keys')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error

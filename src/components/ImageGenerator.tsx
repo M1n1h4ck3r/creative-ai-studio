@@ -26,7 +26,7 @@ const generationSchema = z.object({
     .string()
     .min(3, 'Prompt deve ter pelo menos 3 caracteres')
     .max(2000, 'Prompt não pode exceder 2000 caracteres'),
-  provider: z.enum(['gemini', 'openai'] as const),
+  provider: z.enum(['gemini', 'openai', 'replicate', 'stable-diffusion'] as const),
   aspectRatio: z.string(),
   style: z.string().optional(),
   negativePrompt: z.string().optional(),
@@ -78,7 +78,7 @@ export default function ImageGenerator() {
     candidateCount: 1,
     presencePenalty: 0,
     frequencyPenalty: 0,
-    stopSequences: [],
+    stopSequences: [] as string[],
     responseMimeType: 'text/plain'
   })
   const [attachedFiles, setAttachedFiles] = useState<any[]>([])
@@ -104,7 +104,12 @@ export default function ImageGenerator() {
 
     // Set first available provider as default
     if (available.length > 0 && !hasApiKey(watchedValues.provider)) {
-      form.setValue('provider', available[0])
+      const validProvider = available.find(p => 
+        ['gemini', 'openai', 'replicate', 'stable-diffusion'].includes(p)
+      )
+      if (validProvider) {
+        form.setValue('provider', validProvider as any)
+      }
     }
   }, [hasApiKey, form, watchedValues.provider])
 
@@ -284,7 +289,7 @@ export default function ImageGenerator() {
       {/* Advanced Gemini Controls */}
       <GeminiAdvancedControls
         config={geminiConfig}
-        onConfigChange={setGeminiConfig}
+        onConfigChange={(config) => setGeminiConfig(config)}
         attachedFiles={attachedFiles}
         onFilesChange={setAttachedFiles}
       />

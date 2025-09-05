@@ -11,7 +11,7 @@ export const createClient = () => {
       persistSession: true,
       autoRefreshToken: true,
     },
-  })
+  }) as any
 }
 
 // Server-side Supabase client
@@ -28,5 +28,5 @@ export const createServerClient = () => {
       autoRefreshToken: false,
       persistSession: false,
     },
-  })
+  }) as any
 }

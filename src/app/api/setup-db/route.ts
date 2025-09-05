@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
         FOR ALL USING (auth.uid() = id);
     `
     
-    const { error: usersError } = await supabase.rpc('exec', { sql: usersSQL })
+    const { error: usersError } = await supabase.rpc('exec', { sql: usersSQL } as any)
     if (usersError && !usersError.message.includes('already exists')) {
       console.log('Users table error:', usersError)
     }
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON public.api_keys(user_id);
     `
     
-    const { error: apiKeysError } = await supabase.rpc('exec', { sql: apiKeysSQL })
+    const { error: apiKeysError } = await supabase.rpc('exec', { sql: apiKeysSQL } as any)
     if (apiKeysError && !apiKeysError.message.includes('already exists')) {
       console.log('API keys table error:', apiKeysError)
     }
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       CREATE INDEX IF NOT EXISTS idx_generations_user_id ON public.generations(user_id);
     `
     
-    const { error: generationsError } = await supabase.rpc('exec', { sql: generationsSQL })
+    const { error: generationsError } = await supabase.rpc('exec', { sql: generationsSQL } as any)
     if (generationsError && !generationsError.message.includes('already exists')) {
       console.log('Generations table error:', generationsError)
     }

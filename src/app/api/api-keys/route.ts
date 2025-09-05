@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { createClient, createServerClient } from '@/lib/supabase'
 import { encrypt } from '@/lib/encryption'
 import type { InsertApiKey, UpdateApiKey } from '@/types/supabase'
 
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     // First, deactivate any existing key for this provider
     const { error: deactivateError } = await supabase
       .from('api_keys')
-      .update({ is_active: false } satisfies UpdateApiKey)
+      .update({ is_active: false } as any)
       .eq('user_id', user.id)
       .eq('provider', provider)
 
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         encrypted_key: encryptedKey,
         key_name: keyName || `${provider} Key`,
         is_active: true
-      } satisfies InsertApiKey)
+      } as any)
       .select()
       .single()
 
