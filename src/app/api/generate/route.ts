@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { prompt, provider, aspectRatio, style, negativePrompt, model } = body
+    const { prompt, provider, aspectRatio, style, negativePrompt, model, geminiConfig, attachedFiles } = body
 
     if (!prompt || !provider) {
       return NextResponse.json(
@@ -68,7 +68,9 @@ export async function POST(request: NextRequest) {
         negativePrompt: negativePrompt || undefined,
         aspectRatio: aspectRatio || '1:1',
         style: style || undefined,
-        model: model || undefined
+        model: model || undefined,
+        geminiConfig: provider === 'gemini' ? geminiConfig : undefined,
+        attachedFiles: provider === 'gemini' ? attachedFiles : undefined
       }
 
       // Generate the image

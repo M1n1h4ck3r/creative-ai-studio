@@ -1,3 +1,25 @@
+export interface GeminiConfig {
+  temperature?: number
+  topP?: number
+  topK?: number
+  maxOutputTokens?: number
+  candidateCount?: number
+  presencePenalty?: number
+  frequencyPenalty?: number
+  stopSequences?: string[]
+  seed?: number
+  responseMimeType?: string
+}
+
+export interface AttachedFile {
+  id: string
+  name: string
+  type: string
+  size: number
+  data: string
+  preview?: string
+}
+
 export interface GenerationOptions {
   prompt: string
   negativePrompt?: string
@@ -10,6 +32,8 @@ export interface GenerationOptions {
   guidance?: number
   seed?: number
   model?: string
+  geminiConfig?: GeminiConfig
+  attachedFiles?: AttachedFile[]
 }
 
 export interface GenerationResult {

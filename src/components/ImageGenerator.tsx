@@ -19,6 +19,7 @@ import { useApiKeys } from '@/contexts/ApiKeyContext'
 import { getProviderManager } from '@/lib/providers/manager'
 import { ProviderType, GenerationOptions } from '@/lib/providers/types'
 import PromptTemplates from '@/components/PromptTemplates'
+import GeminiAdvancedControls from '@/components/GeminiAdvancedControls'
 
 const generationSchema = z.object({
   prompt: z
@@ -69,6 +70,18 @@ export default function ImageGenerator() {
   const [availableProviders, setAvailableProviders] = useState<ProviderType[]>([])
   const [costEstimate, setCostEstimate] = useState<{ provider: string; cost: number } | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [geminiConfig, setGeminiConfig] = useState({
+    temperature: 0.7,
+    topP: 0.95,
+    topK: 20,
+    maxOutputTokens: 1000,
+    candidateCount: 1,
+    presencePenalty: 0,
+    frequencyPenalty: 0,
+    stopSequences: [],
+    responseMimeType: 'text/plain'
+  })
+  const [attachedFiles, setAttachedFiles] = useState<any[]>([])
 
   const form = useForm<GenerationFormData>({
     resolver: zodResolver(generationSchema),
@@ -143,10 +156,16 @@ export default function ImageGenerator() {
         })
       }, 500)
 
+      const requestData = {
+        ...data,
+        geminiConfig: data.provider === 'gemini' ? geminiConfig : undefined,
+        attachedFiles: data.provider === 'gemini' ? attachedFiles : undefined
+      }
+
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(requestData),
       })
 
       clearInterval(progressInterval)
@@ -261,6 +280,14 @@ export default function ImageGenerator() {
           onSelectTemplate={handleTemplateSelect}
         />
       )}
+
+      {/* Advanced Gemini Controls */}
+      <GeminiAdvancedControls
+        config={geminiConfig}
+        onConfigChange={setGeminiConfig}
+        attachedFiles={attachedFiles}
+        onFilesChange={setAttachedFiles}
+      />
       
       <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
         {/* Generation Form */}

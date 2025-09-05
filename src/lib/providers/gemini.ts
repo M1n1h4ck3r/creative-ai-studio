@@ -22,9 +22,27 @@ export class GeminiProvider extends AIProvider {
       
       const startTime = Date.now()
       
+      // Prepare generation config with advanced controls
+      const generationConfig: any = {}
+      
+      if (options.geminiConfig) {
+        const config = options.geminiConfig
+        if (config.temperature !== undefined) generationConfig.temperature = config.temperature
+        if (config.topP !== undefined) generationConfig.topP = config.topP
+        if (config.topK !== undefined) generationConfig.topK = config.topK
+        if (config.maxOutputTokens !== undefined) generationConfig.maxOutputTokens = config.maxOutputTokens
+        if (config.candidateCount !== undefined) generationConfig.candidateCount = config.candidateCount
+        if (config.presencePenalty !== undefined) generationConfig.presencePenalty = config.presencePenalty
+        if (config.frequencyPenalty !== undefined) generationConfig.frequencyPenalty = config.frequencyPenalty
+        if (config.stopSequences && config.stopSequences.length > 0) generationConfig.stopSequences = config.stopSequences
+        if (config.seed !== undefined) generationConfig.seed = config.seed
+        if (config.responseMimeType) generationConfig.responseMimeType = config.responseMimeType
+      }
+      
       // Use Gemini 2.5 Flash Image model for native image generation
       const model = this.genAI.getGenerativeModel({ 
-        model: options.model || 'gemini-2.5-flash-image-preview'
+        model: options.model || 'gemini-2.5-flash-image-preview',
+        generationConfig: Object.keys(generationConfig).length > 0 ? generationConfig : undefined
       })
 
       // Build the enhanced prompt with style and negative prompts
@@ -38,8 +56,23 @@ export class GeminiProvider extends AIProvider {
         enhancedPrompt += `. Avoid: ${options.negativePrompt}`
       }
 
+      // Prepare content array (prompt + attached files)
+      const contents: any[] = [enhancedPrompt]
+      
+      // Add attached files if provided
+      if (options.attachedFiles && options.attachedFiles.length > 0) {
+        for (const file of options.attachedFiles) {
+          contents.push({
+            inlineData: {
+              data: file.data,
+              mimeType: file.type
+            }
+          })
+        }
+      }
+
       // Generate image using Gemini's native capabilities
-      const result = await model.generateContent([enhancedPrompt])
+      const result = await model.generateContent(contents)
       
       if (!result.response) {
         throw new Error('No response from Gemini model')
