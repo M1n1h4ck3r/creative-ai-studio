@@ -48,6 +48,11 @@ export class GeminiProvider extends AIProvider {
       // Build the enhanced prompt with style and negative prompts
       let enhancedPrompt = options.prompt
       
+      // If there are attached files, modify the prompt to be clear about image generation
+      if (options.attachedFiles && options.attachedFiles.length > 0) {
+        enhancedPrompt = `Generate a new image based on the following prompt: "${options.prompt}". Use the attached image(s) as visual reference or inspiration. Create a completely new image following the description.`
+      }
+      
       if (options.style) {
         enhancedPrompt += `, ${options.style} style`
       }
@@ -61,7 +66,14 @@ export class GeminiProvider extends AIProvider {
       
       // Add attached files if provided
       if (options.attachedFiles && options.attachedFiles.length > 0) {
+        console.log('Processing attached files for Gemini:', options.attachedFiles.length)
         for (const file of options.attachedFiles) {
+          console.log('Adding file to contents:', {
+            name: file.name,
+            type: file.type,
+            hasData: !!file.data,
+            dataLength: file.data?.length || 0
+          })
           contents.push({
             inlineData: {
               data: file.data,
@@ -69,6 +81,7 @@ export class GeminiProvider extends AIProvider {
             }
           })
         }
+        console.log('Final contents array length:', contents.length)
       }
 
       // Generate image using Gemini's native capabilities
@@ -103,7 +116,23 @@ export class GeminiProvider extends AIProvider {
       }
 
       if (!imageUrl) {
-        throw new Error('No image data found in response')
+        // Check if there's a text response explaining why no image was generated
+        let textResponse = ''
+        for (const candidate of candidates) {
+          for (const part of candidate.content.parts) {
+            if (part.text) {
+              textResponse = part.text
+              break
+            }
+          }
+          if (textResponse) break
+        }
+        
+        if (textResponse) {
+          throw new Error(`Gemini não pôde gerar a imagem: ${textResponse}`)
+        } else {
+          throw new Error('No image data found in response')
+        }
       }
       
       const generationTime = Date.now() - startTime

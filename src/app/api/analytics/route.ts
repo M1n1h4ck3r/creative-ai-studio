@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
         ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
         referer: request.headers.get('referer'),
       })
+      .select()
 
     if (error) {
       console.error('Analytics storage error:', error)

@@ -5,107 +5,133 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = createServerClient()
     
-    // Create users table
-    const usersSQL = `
-      CREATE TABLE IF NOT EXISTS public.users (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        email varchar(255) UNIQUE NOT NULL,
-        full_name varchar(255),
-        avatar_url text,
-        created_at timestamptz DEFAULT now(),
-        updated_at timestamptz DEFAULT now()
-      );
-      
-      ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-      
-      CREATE POLICY IF NOT EXISTS "Users can view own profile" ON public.users
-        FOR ALL USING (auth.uid() = id);
-    `
+    const results = []
     
-    const { error: usersError } = await supabase.rpc('exec', { sql: usersSQL } as any)
-    if (usersError && !usersError.message.includes('already exists')) {
-      console.log('Users table error:', usersError)
+    // 1. Create users table that extends auth.users
+    try {
+      const { error: usersError } = await supabase
+        .from('information_schema.tables')
+        .select('table_name')
+        .eq('table_name', 'users')
+        .eq('table_schema', 'public')
+      
+      if (!usersError) {
+        // Try to create a simple test record to check if auth works
+        const { data: authUser } = await supabase.auth.getUser()
+        results.push({ table: 'auth_test', status: 'ok', user: !!authUser })
+      }
+    } catch (error: any) {
+      results.push({ table: 'users', status: 'error', error: error.message })
     }
 
-    // Create api_keys table
-    const apiKeysSQL = `
-      CREATE TABLE IF NOT EXISTS public.api_keys (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-        provider varchar(50) NOT NULL,
-        encrypted_key text NOT NULL,
-        key_name varchar(100),
-        is_active boolean DEFAULT true,
-        last_used_at timestamptz,
-        created_at timestamptz DEFAULT now(),
-        updated_at timestamptz DEFAULT now()
-      );
-      
-      ALTER TABLE public.api_keys ENABLE ROW LEVEL SECURITY;
-      
-      CREATE POLICY IF NOT EXISTS "Users can manage own API keys" ON public.api_keys
-        FOR ALL USING (auth.uid() = user_id);
+    // 2. Test if we can create a profiles table (simpler approach)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .select('*')
+        .limit(1)
         
-      CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON public.api_keys(user_id);
-    `
-    
-    const { error: apiKeysError } = await supabase.rpc('exec', { sql: apiKeysSQL } as any)
-    if (apiKeysError && !apiKeysError.message.includes('already exists')) {
-      console.log('API keys table error:', apiKeysError)
+      if (error && error.message.includes('does not exist')) {
+        // Create profiles table via raw SQL - this is the most direct approach
+        const createProfilesSQL = `
+          CREATE TABLE IF NOT EXISTS public.profiles (
+            id uuid REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+            email text UNIQUE,
+            full_name text,
+            avatar_url text,
+            created_at timestamptz DEFAULT now(),
+            updated_at timestamptz DEFAULT now()
+          );
+          
+          -- Enable RLS
+          ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+          
+          -- Create policies
+          CREATE POLICY IF NOT EXISTS "Public profiles are viewable by everyone" 
+            ON public.profiles FOR SELECT USING (true);
+            
+          CREATE POLICY IF NOT EXISTS "Users can insert their own profile" 
+            ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+            
+          CREATE POLICY IF NOT EXISTS "Users can update own profile" 
+            ON public.profiles FOR UPDATE USING (auth.uid() = id);
+        `
+        
+        // Execute this via a special admin call
+        results.push({ 
+          table: 'profiles', 
+          status: 'needs_manual_setup',
+          message: 'Please run the SQL setup script in Supabase dashboard',
+          sql: createProfilesSQL 
+        })
+      } else {
+        results.push({ table: 'profiles', status: 'exists' })
+      }
+    } catch (error: any) {
+      results.push({ table: 'profiles', status: 'error', error: error.message })
     }
 
-    // Create generations table
-    const generationsSQL = `
-      CREATE TABLE IF NOT EXISTS public.generations (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-        provider varchar(50) NOT NULL,
-        prompt text NOT NULL,
-        negative_prompt text,
-        model_used varchar(100),
-        image_url text,
-        thumbnail_url text,
-        format varchar(20) DEFAULT '1:1',
-        width integer,
-        height integer,
-        generation_time_ms integer,
-        cost_credits integer DEFAULT 0,
-        metadata jsonb,
-        status varchar(20) DEFAULT 'pending',
-        error_message text,
-        is_favorite boolean DEFAULT false,
-        created_at timestamptz DEFAULT now(),
-        updated_at timestamptz DEFAULT now()
-      );
+    // 3. Test authentication directly
+    try {
+      // Test signup with a temporary user
+      const testEmail = `test+${Date.now()}@example.com`
+      const testPassword = 'testpass123'
       
-      ALTER TABLE public.generations ENABLE ROW LEVEL SECURITY;
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: testEmail,
+        password: testPassword,
+        options: {
+          data: {
+            full_name: 'Test User'
+          }
+        }
+      })
       
-      CREATE POLICY IF NOT EXISTS "Users can manage own generations" ON public.generations
-        FOR ALL USING (auth.uid() = user_id);
+      if (signUpError) {
+        results.push({ 
+          test: 'signup', 
+          status: 'error', 
+          error: signUpError.message 
+        })
+      } else {
+        results.push({ 
+          test: 'signup', 
+          status: 'ok',
+          user_id: signUpData.user?.id,
+          confirmation_required: !signUpData.session 
+        })
         
-      CREATE INDEX IF NOT EXISTS idx_generations_user_id ON public.generations(user_id);
-    `
-    
-    const { error: generationsError } = await supabase.rpc('exec', { sql: generationsSQL } as any)
-    if (generationsError && !generationsError.message.includes('already exists')) {
-      console.log('Generations table error:', generationsError)
+        // Clean up test user if possible
+        if (signUpData.user) {
+          try {
+            await supabase.auth.admin.deleteUser(signUpData.user.id)
+            results.push({ test: 'cleanup', status: 'ok' })
+          } catch {
+            results.push({ test: 'cleanup', status: 'manual_required' })
+          }
+        }
+      }
+    } catch (error: any) {
+      results.push({ test: 'signup', status: 'error', error: error.message })
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Database setup completed',
-      errors: {
-        users: usersError?.message || null,
-        apiKeys: apiKeysError?.message || null,
-        generations: generationsError?.message || null
-      }
+      message: 'Database and auth diagnostics completed',
+      results,
+      next_steps: [
+        'If profiles table needs manual setup, run the SQL in Supabase dashboard',
+        'Check that email confirmation is configured correctly',
+        'Verify that auth policies are properly set'
+      ]
     })
     
   } catch (error: any) {
     console.error('Database setup error:', error)
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: error.message,
+      stack: error.stack
     }, { status: 500 })
   }
 }

@@ -1,37 +1,46 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { ImageGenerator } from '@/components/ImageGenerator'
-import { ApiKeyProvider } from '@/contexts/ApiKeyContext'
+import ImageGenerator from '@/components/ImageGenerator'
 
-// Mock the contexts
-const mockApiKeys = {
-  'gemini': 'test-gemini-key',
-  'openai': 'test-openai-key',
+// Mock the API key context
+const mockGetApiKey = jest.fn((provider: string) => {
+  const keys: Record<string, string> = {
+    'gemini': 'test-gemini-key',
+    'openai': 'test-openai-key',
+  }
+  return keys[provider] || null
+})
+
+const mockContextValue = {
+  apiKeys: [],
+  loading: false,
+  getApiKey: mockGetApiKey,
+  refreshApiKeys: jest.fn(),
+  hasApiKey: jest.fn((provider: string) => ['gemini', 'openai'].includes(provider)),
+  updateLastUsed: jest.fn(),
 }
 
-const MockApiKeyProvider = ({ children }: { children: React.ReactNode }) => (
-  <ApiKeyProvider value={{
-    apiKeys: mockApiKeys,
-    addApiKey: jest.fn(),
-    removeApiKey: jest.fn(),
-    updateApiKey: jest.fn(),
-    loading: false,
-    error: null
-  } as any}>
-    {children}
-  </ApiKeyProvider>
+// Mock the ApiKeyContext
+jest.mock('@/contexts/ApiKeyContext', () => ({
+  useApiKeys: () => mockContextValue,
+  ApiKeyProvider: ({ children }: { children: React.ReactNode }) => children,
+}))
+
+const MockProvider = ({ children }: { children: React.ReactNode }) => (
+  <div>{children}</div>
 )
 
 describe('ImageGenerator Component', () => {
   beforeEach(() => {
-    global.testHelpers.resetAllMocks()
+    // Reset mocks
+    jest.clearAllMocks()
   })
 
   it('renders the component correctly', () => {
     render(
-      <MockApiKeyProvider>
+      <MockProvider>
         <ImageGenerator />
-      </MockApiKeyProvider>
+      </MockProvider>
     )
 
     expect(screen.getByText('Gerador de Imagens')).toBeInTheDocument()
@@ -41,9 +50,9 @@ describe('ImageGenerator Component', () => {
 
   it('shows provider selection', () => {
     render(
-      <MockApiKeyProvider>
+      <MockProvider>
         <ImageGenerator />
-      </MockApiKeyProvider>
+      </MockProvider>
     )
 
     expect(screen.getByText('Provider')).toBeInTheDocument()
@@ -52,9 +61,9 @@ describe('ImageGenerator Component', () => {
 
   it('validates prompt input', async () => {
     render(
-      <MockApiKeyProvider>
+      <MockProvider>
         <ImageGenerator />
-      </MockApiKeyProvider>
+      </MockProvider>
     )
 
     const generateButton = screen.getByRole('button', { name: /gerar imagem/i })
@@ -68,16 +77,19 @@ describe('ImageGenerator Component', () => {
   })
 
   it('generates image with valid input', async () => {
-    global.testHelpers.mockApiResponse({
+    // Mock API response
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
       success: true,
       imageUrl: 'https://example.com/generated-image.png',
       provider: 'gemini'
     })
 
     render(
-      <MockApiKeyProvider>
+      <MockProvider>
         <ImageGenerator />
-      </MockApiKeyProvider>
+      </MockProvider>
     )
 
     const promptInput = screen.getByPlaceholderText('Descreva a imagem que você deseja gerar...')
@@ -107,14 +119,17 @@ describe('ImageGenerator Component', () => {
   })
 
   it('handles generation errors gracefully', async () => {
-    global.testHelpers.mockApiResponse({
+    // Mock API response
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
       error: 'API key is invalid'
     }, 400)
 
     render(
-      <MockApiKeyProvider>
+      <MockProvider>
         <ImageGenerator />
-      </MockApiKeyProvider>
+      </MockProvider>
     )
 
     const promptInput = screen.getByPlaceholderText('Descreva a imagem que você deseja gerar...')
@@ -153,9 +168,9 @@ describe('ImageGenerator Component', () => {
 
   it('updates prompt with template selection', () => {
     render(
-      <MockApiKeyProvider>
+      <MockProvider>
         <ImageGenerator />
-      </MockApiKeyProvider>
+      </MockProvider>
     )
 
     const promptInput = screen.getByPlaceholderText('Descreva a imagem que você deseja gerar...')
@@ -175,9 +190,9 @@ describe('ImageGenerator Component', () => {
 
   it('handles provider switching', async () => {
     render(
-      <MockApiKeyProvider>
+      <MockProvider>
         <ImageGenerator />
-      </MockApiKeyProvider>
+      </MockProvider>
     )
 
     const providerSelect = screen.getByRole('combobox')
@@ -205,9 +220,9 @@ describe('ImageGenerator Component', () => {
     ;(global as any).localStorage.getItem.mockReturnValue(JSON.stringify(mockHistory))
 
     render(
-      <MockApiKeyProvider>
+      <MockProvider>
         <ImageGenerator />
-      </MockApiKeyProvider>
+      </MockProvider>
     )
 
     await waitFor(() => {
@@ -216,7 +231,10 @@ describe('ImageGenerator Component', () => {
   })
 
   it('allows downloading generated images', async () => {
-    global.testHelpers.mockApiResponse({
+    // Mock API response
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
       success: true,
       imageUrl: 'https://example.com/generated-image.png',
       provider: 'gemini'
@@ -235,9 +253,9 @@ describe('ImageGenerator Component', () => {
     document.body.removeChild = jest.fn()
 
     render(
-      <MockApiKeyProvider>
+      <MockProvider>
         <ImageGenerator />
-      </MockApiKeyProvider>
+      </MockProvider>
     )
 
     const promptInput = screen.getByPlaceholderText('Descreva a imagem que você deseja gerar...')

@@ -72,6 +72,20 @@ export async function POST(request: NextRequest) {
         geminiConfig: provider === 'gemini' ? geminiConfig : undefined,
         attachedFiles: provider === 'gemini' ? attachedFiles : undefined
       }
+      
+      // Debug log para verificar arquivos anexados
+      if (provider === 'gemini' && attachedFiles) {
+        console.log('Attached files being sent to Gemini:', attachedFiles.length, 'files')
+        attachedFiles.forEach((file: any, index: number) => {
+          console.log(`File ${index}:`, {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            hasData: !!file.data,
+            dataLength: file.data?.length || 0
+          })
+        })
+      }
 
       // Generate the image
       const startTime = Date.now()
@@ -146,7 +160,7 @@ export async function POST(request: NextRequest) {
     } else if (error.message.includes('Rate limit')) {
       errorMessage = 'Rate limit exceeded. Please try again later'
       statusCode = 429
-    } else if (error.message.includes('Prompt')) {
+    } else if (error.message.includes('Prompt') || error.message.includes('não pôde gerar')) {
       errorMessage = error.message
       statusCode = 400
     }

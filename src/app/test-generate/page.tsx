@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { ChevronDown, ChevronUp, Settings, Upload, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Settings, Upload, X } from 'lucide-react'
 import Image from 'next/image'
 
 export default function TestGeneratePage() {
@@ -89,7 +90,15 @@ export default function TestGeneratePage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <h1 className="text-3xl font-bold mb-8">Teste de Geração - Gemini 2.5 Flash Image</h1>
+      <div className="flex items-center gap-4 mb-8">
+        <Link href="/dashboard">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar
+          </Button>
+        </Link>
+        <h1 className="text-3xl font-bold">Teste de Geração - Gemini 2.5 Flash Image</h1>
+      </div>
       
       {/* Advanced Controls */}
       <Card className="mb-6">

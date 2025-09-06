@@ -9,31 +9,44 @@ export interface AuthState {
 export class AuthService {
   private supabase = createClient()
 
-  // Sign up with email and password
+  // Sign up with email and password - now uses API endpoint
   async signUp(email: string, password: string, fullName?: string) {
-    const { data, error } = await this.supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
+    // Use our API endpoint which handles admin user creation properly
+    const response = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ email, password, fullName }),
     })
 
-    if (error) throw error
-    return data
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to create account')
+    }
+
+    return result
   }
 
-  // Sign in with email and password
+  // Sign in with email and password - now uses API endpoint
   async signIn(email: string, password: string) {
-    const { data, error } = await this.supabase.auth.signInWithPassword({
-      email,
-      password,
+    // Use our API endpoint for consistency
+    const response = await fetch('/api/auth/signin', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
     })
 
-    if (error) throw error
-    return data
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to sign in')
+    }
+
+    return result
   }
 
   // Sign in with Google OAuth

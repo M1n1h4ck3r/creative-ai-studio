@@ -5,36 +5,96 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Download, Trash2, History, Eye } from 'lucide-react'
+import { Download, Trash2, History, Eye, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
+import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface GeneratedImage {
   id: string
-  url: string
+  image_url: string
   prompt: string
   provider: string
-  aspectRatio: string
-  timestamp: number
-  metadata?: any
+  format: string
+  created_at: string
+  status: string
+  model_used?: string
+  generation_time_ms?: number
+  cost_credits?: number
+  is_favorite: boolean
 }
 
 export default function ImageHistory() {
   const [images, setImages] = useState<GeneratedImage[]>([])
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const { user } = useAuth()
 
-  useEffect(() => {
-    // Load images from localStorage
+  const loadImagesFromDatabase = async () => {
+    if (!user) {
+      setError('User not authenticated')
+      setLoading(false)
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const supabase = createClient()
+      const { data: generations, error: dbError } = await supabase
+        .from('generations')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (dbError) {
+        throw new Error(dbError.message)
+      }
+
+      setImages(generations || [])
+    } catch (err: any) {
+      console.error('Error loading images from database:', err)
+      setError(err.message)
+      // Fallback to localStorage
+      loadImagesFromLocalStorage()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadImagesFromLocalStorage = () => {
     const savedImages = localStorage.getItem('generated-images')
     if (savedImages) {
       try {
         const parsedImages = JSON.parse(savedImages)
-        setImages(parsedImages.reverse()) // Most recent first
+        // Convert localStorage format to database format
+        const convertedImages = parsedImages.map((img: any) => ({
+          id: img.id,
+          image_url: img.url,
+          prompt: img.prompt,
+          provider: img.provider,
+          format: img.aspectRatio || '1:1',
+          created_at: new Date(img.timestamp).toISOString(),
+          status: 'completed',
+          model_used: img.metadata?.model,
+          generation_time_ms: img.metadata?.generationTime,
+          is_favorite: false
+        }))
+        setImages(convertedImages.reverse()) // Most recent first
       } catch (error) {
         console.error('Error loading image history:', error)
       }
     }
-  }, [])
+  }
+
+  useEffect(() => {
+    loadImagesFromDatabase()
+  }, [user])
 
   const saveToHistory = (image: Omit<GeneratedImage, 'id' | 'timestamp'>) => {
     const newImage: GeneratedImage = {
@@ -51,8 +111,8 @@ export default function ImageHistory() {
   const downloadImage = (image: GeneratedImage) => {
     try {
       const a = document.createElement('a')
-      a.href = image.url
-      a.download = `${image.provider}-image-${image.timestamp}.png`
+      a.href = image.image_url
+      a.download = `${image.provider}-image-${image.created_at}.png`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -79,8 +139,8 @@ export default function ImageHistory() {
     toast.success('Histórico limpo')
   }
 
-  const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString('pt-BR')
+  const formatTimestamp = (dateString: string) => {
+    return new Date(dateString).toLocaleString('pt-BR')
   }
 
   // Expose saveToHistory globally for other components to use
@@ -115,7 +175,26 @@ export default function ImageHistory() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            {images.length === 0 ? (
+            {loading ? (
+              <div className="p-6 text-center text-muted-foreground">
+                <div className="flex items-center justify-center space-x-2">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span>Carregando histórico...</span>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="p-6 text-center">
+                <div className="text-destructive mb-2">{error}</div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={loadImagesFromDatabase}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Tentar novamente
+                </Button>
+              </div>
+            ) : images.length === 0 ? (
               <div className="p-6 text-center text-muted-foreground">
                 <History className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>Nenhuma imagem gerada ainda</p>
@@ -136,7 +215,7 @@ export default function ImageHistory() {
                         <div className="flex items-start space-x-3">
                           <div className="relative">
                             <Image
-                              src={image.url}
+                              src={image.image_url}
                               alt={image.prompt}
                               width={60}
                               height={60}
@@ -152,11 +231,11 @@ export default function ImageHistory() {
                                 {image.provider}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
-                                {image.aspectRatio}
+                                {image.format}
                               </span>
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {formatTimestamp(image.timestamp)}
+                              {formatTimestamp(image.created_at)}
                             </p>
                           </div>
                         </div>
@@ -257,14 +336,14 @@ export default function ImageHistory() {
                     <div>
                       <span className="text-sm font-medium">Formato: </span>
                       <Badge variant="secondary">
-                        {selectedImage.aspectRatio}
+                        {selectedImage.format}
                       </Badge>
                     </div>
                   </div>
                   <div>
                     <span className="text-sm font-medium">Gerado em: </span>
                     <span className="text-sm text-muted-foreground">
-                      {formatTimestamp(selectedImage.timestamp)}
+                      {formatTimestamp(selectedImage.created_at)}
                     </span>
                   </div>
                   {selectedImage.metadata && (

@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt, aspectRatio = '1:1' } = await request.json()
+    const { prompt, aspectRatio = '1:1', attachedFiles } = await request.json()
 
     if (!prompt) {
       return NextResponse.json(
@@ -22,16 +22,45 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('Using Gemini API key:', apiKey.substring(0, 15) + '...')
-
     try {
       const genAI = new GoogleGenerativeAI(apiKey)
       const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-image-preview' })
       
       const startTime = Date.now()
       
+      // Build enhanced prompt and contents like main API
+      let enhancedPrompt = prompt
+      
+      // If there are attached files, modify the prompt to be clear about image generation
+      if (attachedFiles && attachedFiles.length > 0) {
+        enhancedPrompt = `Generate a new image based on the following prompt: "${prompt}". Use the attached image(s) as visual reference or inspiration. Create a completely new image following the description.`
+        console.log('Test API - Processing attached files:', attachedFiles.length)
+      }
+
+      // Prepare content array (prompt + attached files)
+      const contents: any[] = [enhancedPrompt]
+      
+      // Add attached files if provided
+      if (attachedFiles && attachedFiles.length > 0) {
+        for (const file of attachedFiles) {
+          console.log('Test API - Adding file:', {
+            name: file.name,
+            type: file.type,
+            hasData: !!file.data,
+            dataLength: file.data?.length || 0
+          })
+          contents.push({
+            inlineData: {
+              data: file.data,
+              mimeType: file.type
+            }
+          })
+        }
+        console.log('Test API - Final contents array length:', contents.length)
+      }
+      
       // Gerar imagem com Gemini 2.5 Flash Image
-      const result = await model.generateContent([prompt])
+      const result = await model.generateContent(contents)
       const response = result.response
       const candidates = response.candidates
       
@@ -42,22 +71,35 @@ export async function POST(request: NextRequest) {
       // Procurar por dados de imagem na resposta
       let imageUrl: string | undefined
       let imageData: string | undefined
+      let textResponse: string | undefined
 
       for (const candidate of candidates) {
-        for (const part of candidate.content.parts) {
-          if (part.inlineData?.data) {
-            // Dados de imagem inline (base64)
-            const mimeType = part.inlineData.mimeType || 'image/png'
-            imageData = part.inlineData.data
-            imageUrl = `data:${mimeType};base64,${imageData}`
-            break
+        if (candidate.content?.parts) {
+          for (const part of candidate.content.parts) {
+            if (part.inlineData?.data) {
+              // Dados de imagem inline (base64)
+              const mimeType = part.inlineData.mimeType || 'image/png'
+              imageData = part.inlineData.data
+              imageUrl = `data:${mimeType};base64,${imageData}`
+              break
+            } else if (part.text) {
+              textResponse = part.text
+            }
           }
         }
         if (imageUrl) break
       }
 
       if (!imageUrl) {
-        throw new Error('No image data found in Gemini response')
+        // Se não há imagem mas há texto, retorne erro com o texto da resposta
+        const errorMessage = textResponse 
+          ? `Gemini não pôde gerar a imagem: ${textResponse}`
+          : 'No image data found in Gemini response'
+        
+        return NextResponse.json({
+          success: false,
+          error: errorMessage
+        }, { status: 400 })
       }
       
       const generationTime = Date.now() - startTime

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { LoadingSpinner } from '@/components/ui/loading'
+import LoadingSpinner from '@/components/ui/loading'
 import { analytics } from '@/lib/analytics'
 
 interface AnalyticsData {

@@ -5,7 +5,8 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { ApiKeyProvider } from '@/contexts/ApiKeyContext'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/react'
-import { ErrorBoundary } from '@/components/ErrorBoundary'
+// import { ErrorBoundary } from '@/components/ErrorBoundary'
+// import { MonitoringProvider } from '@/components/MonitoringProvider'
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,15 +23,13 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
-        <ErrorBoundary>
-          <AuthProvider>
-            <ApiKeyProvider>
-              {children}
-              <Toaster position="top-right" richColors />
-              <Analytics />
-            </ApiKeyProvider>
-          </AuthProvider>
-        </ErrorBoundary>
+        <AuthProvider>
+          <ApiKeyProvider>
+            {children}
+            <Toaster position="top-right" richColors />
+            <Analytics />
+          </ApiKeyProvider>
+        </AuthProvider>
       </body>
     </html>
   );

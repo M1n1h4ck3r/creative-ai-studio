@@ -1,7 +1,10 @@
 'use client'
 
 import React from 'react'
-import { captureError } from '@/lib/analytics'
+import { monitoring } from '@/lib/monitoring'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { AlertTriangle, RefreshCw } from 'lucide-react'
 
 interface ErrorBoundaryProps {
   children: React.ReactNode
@@ -25,7 +28,17 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('🚨 Error Boundary caught an error:', error, errorInfo)
-    captureError(error, errorInfo)
+    
+    // Track error with monitoring system
+    monitoring.trackError({
+      message: error.message,
+      stack: error.stack || '',
+      componentStack: errorInfo.componentStack,
+      url: typeof window !== 'undefined' ? window.location.href : '',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      timestamp: Date.now(),
+      sessionId: monitoring.getSessionId()
+    })
   }
 
   render() {
@@ -50,34 +63,48 @@ const DefaultErrorFallback: React.FC<{ error: Error; reset: () => void }> = ({
   reset 
 }) => {
   return (
-    <div className="min-h-[400px] flex items-center justify-center">
-      <div className="text-center p-6 max-w-md mx-auto">
-        <div className="text-red-500 text-6xl mb-4">⚠️</div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">
-          Oops! Algo deu errado
-        </h2>
-        <p className="text-gray-600 mb-4">
-          Ocorreu um erro inesperado. Nossa equipe foi notificada automaticamente.
-        </p>
-        <details className="text-left text-sm text-gray-500 mb-6 bg-gray-100 p-3 rounded">
-          <summary className="cursor-pointer font-medium">Detalhes técnicos</summary>
-          <pre className="mt-2 whitespace-pre-wrap">{error.message}</pre>
-        </details>
-        <div className="space-x-4">
-          <button
-            onClick={reset}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
-            Tentar novamente
-          </button>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-          >
-            Recarregar página
-          </button>
-        </div>
-      </div>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background to-muted/20">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-6 h-6 text-red-600" />
+          </div>
+          <CardTitle className="text-xl">Algo deu errado</CardTitle>
+        </CardHeader>
+        
+        <CardContent className="space-y-4">
+          <p className="text-center text-muted-foreground">
+            Ocorreu um erro inesperado na aplicação. Nossa equipe foi notificada e está investigando.
+          </p>
+          
+          {process.env.NODE_ENV === 'development' && (
+            <details className="bg-muted p-3 rounded-lg text-sm">
+              <summary className="cursor-pointer font-medium mb-2">
+                Detalhes do erro (desenvolvimento)
+              </summary>
+              <pre className="whitespace-pre-wrap text-xs overflow-auto max-h-32">
+                {error.message}
+                {error.stack && `\n\n${error.stack}`}
+              </pre>
+            </details>
+          )}
+          
+          <div className="flex flex-col gap-2">
+            <Button onClick={reset} className="w-full">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Tentar Novamente
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.reload()} 
+              className="w-full"
+            >
+              Recarregar Página
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -86,6 +113,14 @@ const DefaultErrorFallback: React.FC<{ error: Error; reset: () => void }> = ({
 export const useErrorHandler = () => {
   return React.useCallback((error: Error, context?: string) => {
     console.error('🚨 Async error handled:', error)
-    captureError(error, context)
+    
+    monitoring.trackError({
+      message: error.message,
+      stack: error.stack || '',
+      url: typeof window !== 'undefined' ? window.location.href : '',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      timestamp: Date.now(),
+      sessionId: monitoring.getSessionId()
+    })
   }, [])
 }

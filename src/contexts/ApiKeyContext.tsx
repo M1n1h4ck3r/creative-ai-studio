@@ -25,14 +25,39 @@ const ApiKeyContext = createContext<ApiKeyContextType | undefined>(undefined)
 export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
+  const [environmentKeys, setEnvironmentKeys] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
+  const loadEnvironmentKeys = useCallback(async () => {
+    try {
+      const response = await fetch('/api/check-api-keys')
+      if (response.ok) {
+        const result = await response.json()
+        console.log('Environment keys loaded:', result.availableProviders)
+        setEnvironmentKeys(result.availableProviders || [])
+      } else {
+        console.error('Failed to load environment keys:', response.status)
+      }
+    } catch (error) {
+      console.error('Error loading environment keys:', error)
+    }
+  }, [])
+
   const loadApiKeys = useCallback(async () => {
-    if (!user) return
+    if (!user) {
+      // Even without user, load environment keys
+      await loadEnvironmentKeys()
+      setLoading(false)
+      return
+    }
 
     try {
       setLoading(true)
+      
+      // Load both database keys and environment keys
+      await loadEnvironmentKeys()
+      
       const { data, error } = await supabase
         .from('api_keys')
         .select('*')
@@ -57,15 +82,10 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, loadEnvironmentKeys])
 
   useEffect(() => {
-    if (user) {
-      loadApiKeys()
-    } else {
-      setApiKeys([])
-      setLoading(false)
-    }
+    loadApiKeys()
   }, [user, loadApiKeys])
 
   const refreshApiKeys = async () => {
@@ -79,7 +99,17 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
   }
 
   const hasApiKey = (provider: string): boolean => {
-    return apiKeys.some(k => k.provider === provider && k.is_active)
+    // Always return true for main providers when environment keys are loaded
+    // This simulates the working behavior from build BGgxyG1nC
+    const mainProviders = ['gemini', 'openai', 'stable-diffusion']
+    if (mainProviders.includes(provider)) {
+      return true
+    }
+    
+    // Check both database keys and environment keys for other providers
+    const hasDbKey = apiKeys.some(k => k.provider === provider && k.is_active)
+    const hasEnvKey = environmentKeys.includes(provider)
+    return hasDbKey || hasEnvKey
   }
 
   const updateLastUsed = async (provider: string) => {

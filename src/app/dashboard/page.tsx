@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { History, Sparkles, Settings } from 'lucide-react'
+import { Activity, History, Sparkles, Settings } from 'lucide-react'
 import ImageGenerator from '@/components/ImageGenerator'
 
 export default function DashboardPage() {
@@ -20,6 +20,12 @@ export default function DashboardPage() {
               <Button variant="outline">
                 <History className="mr-2 h-4 w-4" />
                 Histórico
+              </Button>
+            </Link>
+            <Link href="/dashboard/monitoring">
+              <Button variant="ghost">
+                <Activity className="mr-2 h-4 w-4" />
+                Monitor
               </Button>
             </Link>
             <Link href="/test-generate">

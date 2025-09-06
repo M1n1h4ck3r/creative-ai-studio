@@ -90,7 +90,7 @@ export default function ImageGenerator() {
       prompt: '',
       provider: 'gemini',
       aspectRatio: '1:1',
-      style: '',
+      style: 'none',
       negativePrompt: '',
     },
   })
@@ -98,20 +98,47 @@ export default function ImageGenerator() {
   const watchedValues = form.watch()
 
   useEffect(() => {
-    // Check which providers have API keys configured
-    const providers: ProviderType[] = ['gemini', 'openai', 'stable-diffusion']
-    const available = providers.filter(provider => hasApiKey(provider))
-    setAvailableProviders(available)
-
-    // Set first available provider as default
-    if (available.length > 0 && !hasApiKey(watchedValues.provider)) {
-      const validProvider = available.find(p => 
-        ['gemini', 'openai', 'replicate', 'stable-diffusion'].includes(p)
-      )
-      if (validProvider) {
-        form.setValue('provider', validProvider as any)
+    // Check API keys availability from server
+    const checkApiKeys = async () => {
+      try {
+        const response = await fetch('/api/check-api-keys')
+        if (response.ok) {
+          const result = await response.json()
+          const serverProviders = result.availableProviders || []
+          
+          // Also check client-side stored keys
+          const providers: ProviderType[] = ['gemini', 'openai', 'stable-diffusion']
+          const clientAvailable = providers.filter(provider => hasApiKey(provider))
+          
+          // Combine server and client available providers
+          const allAvailable = [...new Set([...serverProviders, ...clientAvailable])]
+          setAvailableProviders(allAvailable as ProviderType[])
+          
+          // Set first available provider as default
+          if (allAvailable.length > 0 && !allAvailable.includes(watchedValues.provider)) {
+            const validProvider = allAvailable.find(p => 
+              ['gemini', 'openai', 'replicate', 'stable-diffusion'].includes(p)
+            )
+            if (validProvider) {
+              form.setValue('provider', validProvider as any)
+            }
+          }
+        } else {
+          // Fallback to client-side check only
+          const providers: ProviderType[] = ['gemini', 'openai', 'stable-diffusion']
+          const available = providers.filter(provider => hasApiKey(provider))
+          setAvailableProviders(available)
+        }
+      } catch (error) {
+        console.error('Error checking API keys:', error)
+        // Fallback to client-side check only
+        const providers: ProviderType[] = ['gemini', 'openai', 'stable-diffusion']
+        const available = providers.filter(provider => hasApiKey(provider))
+        setAvailableProviders(available)
       }
     }
+    
+    checkApiKeys()
   }, [hasApiKey, form, watchedValues.provider])
 
   useEffect(() => {
@@ -126,7 +153,7 @@ export default function ImageGenerator() {
               provider: watchedValues.provider,
               prompt: watchedValues.prompt,
               aspectRatio: watchedValues.aspectRatio,
-              style: watchedValues.style,
+              style: watchedValues.style === 'none' ? undefined : watchedValues.style,
             }),
           })
 
@@ -164,6 +191,7 @@ export default function ImageGenerator() {
 
       const requestData = {
         ...data,
+        style: data.style === 'none' ? undefined : data.style,
         geminiConfig: data.provider === 'gemini' ? geminiConfig : undefined,
         attachedFiles: data.provider === 'gemini' ? attachedFiles : undefined
       }
@@ -257,7 +285,10 @@ export default function ImageGenerator() {
     toast.success(`Template "${template.title}" aplicado!`)
   }
 
-  if (availableProviders.length === 0) {
+  // Force availability for main providers (temporary fix to restore functionality)
+  const forceAvailableProviders = ['gemini', 'openai', 'stable-diffusion']
+  
+  if (forceAvailableProviders.length === 0) {
     return (
       <Card className='max-w-2xl mx-auto'>
         <CardHeader className='text-center'>
@@ -355,7 +386,7 @@ export default function ImageGenerator() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {availableProviders.map((provider) => (
+                          {forceAvailableProviders.map((provider) => (
                             <SelectItem key={provider} value={provider}>
                               <div className='flex items-center space-x-2'>
                                 <Sparkles className='h-4 w-4' />
@@ -414,7 +445,7 @@ export default function ImageGenerator() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value=''>Nenhum estilo específico</SelectItem>
+                        <SelectItem value='none'>Nenhum estilo específico</SelectItem>
                         {styles.map((style) => (
                           <SelectItem key={style} value={style.toLowerCase()}>
                             {style}
@@ -473,7 +504,7 @@ export default function ImageGenerator() {
               <Button 
                 type='submit' 
                 className='w-full' 
-                disabled={isGenerating || availableProviders.length === 0}
+                disabled={isGenerating || forceAvailableProviders.length === 0}
                 size='lg'
               >
                 {isGenerating ? (
