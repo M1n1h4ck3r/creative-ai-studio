@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Suspense } from 'react'
 import ImageEditor from '@/components/ImageEditor'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 
 export default function EditorPage() {
   const { toast } = useToast()
