@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Activity, History, Sparkles, Settings } from 'lucide-react'
+import { Activity, History, Sparkles, Settings, Layers, Edit, Users, Code } from 'lucide-react'
 import ImageGenerator from '@/components/ImageGenerator'
 
 export default function DashboardPage() {
@@ -16,6 +16,18 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className='flex space-x-2'>
+            <Link href="/batch">
+              <Button variant="outline">
+                <Layers className="mr-2 h-4 w-4" />
+                Lote
+              </Button>
+            </Link>
+            <Link href="/editor">
+              <Button variant="outline">
+                <Edit className="mr-2 h-4 w-4" />
+                Editor
+              </Button>
+            </Link>
             <Link href="/history">
               <Button variant="outline">
                 <History className="mr-2 h-4 w-4" />
@@ -32,6 +44,18 @@ export default function DashboardPage() {
               <Button variant="ghost">
                 <Sparkles className="mr-2 h-4 w-4" />
                 Teste
+              </Button>
+            </Link>
+            <Link href="/team">
+              <Button variant="ghost">
+                <Users className="mr-2 h-4 w-4" />
+                Team
+              </Button>
+            </Link>
+            <Link href="/developer">
+              <Button variant="ghost">
+                <Code className="mr-2 h-4 w-4" />
+                API
               </Button>
             </Link>
             <Link href="/settings">
