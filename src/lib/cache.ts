@@ -1,37 +1,56 @@
-import Redis from 'ioredis'
+// Hybrid caching system - Redis when available, memory cache fallback
+import { LRUCache } from 'lru-cache'
 
-// Redis client singleton
-let redis: Redis | null = null
+// Memory cache as fallback when Redis is not available
+const memoryCache = new LRUCache<string, { value: any; expires: number }>({
+  max: 500,
+  ttl: 1000 * 60 * 15, // 15 minutes default
+})
 
-export const getRedisClient = (): Redis | null => {
-  if (!process.env.REDIS_URL) {
-    console.warn('Redis URL not configured, caching disabled')
-    return null
-  }
+// Redis client (optional, only if available)
+let redis: any = null
+let redisAvailable = false
 
-  if (!redis) {
+// Initialize Redis if available
+async function initializeRedis() {
+  if (process.env.REDIS_URL && !redis) {
     try {
-      redis = new Redis(process.env.REDIS_URL, {
+      const Redis = await import('ioredis')
+      redis = new Redis.default(process.env.REDIS_URL, {
         retryDelayOnFailover: 100,
         enableReadyCheck: false,
         maxRetriesPerRequest: null,
         lazyConnect: true,
       })
 
-      redis.on('error', (error) => {
-        console.error('Redis connection error:', error)
+      redis.on('error', (error: any) => {
+        console.warn('Redis connection error, falling back to memory cache:', error.message)
+        redisAvailable = false
       })
 
       redis.on('connect', () => {
         console.log('✅ Redis connected successfully')
+        redisAvailable = true
       })
+
+      // Test connection
+      await redis.ping()
+      redisAvailable = true
     } catch (error) {
-      console.error('Failed to initialize Redis:', error)
-      return null
+      console.warn('Redis not available, using memory cache:', error)
+      redis = null
+      redisAvailable = false
     }
   }
+}
 
-  return redis
+// Initialize Redis on module load
+initializeRedis().catch(() => {
+  console.log('🔄 Starting with memory cache only')
+})
+
+export const getRedisClient = () => {
+  return redisAvailable ? redis : null
 }
 
 // Cache interface
@@ -52,45 +71,74 @@ export const generateCacheKey = (
   return `${prefix}:${key}`
 }
 
-// Set cache value
+// Set cache value (hybrid approach)
 export const setCache = async (
   key: string, 
   value: any, 
   options: CacheOptions = {}
 ): Promise<boolean> => {
+  const cacheKey = generateCacheKey(key, options.prefix)
+  const ttl = options.ttl || DEFAULT_TTL
+
+  // Try Redis first
   const client = getRedisClient()
-  if (!client) return false
+  if (client && redisAvailable) {
+    try {
+      const serializedValue = JSON.stringify(value)
+      await client.setex(cacheKey, ttl, serializedValue)
+      return true
+    } catch (error) {
+      console.warn('Redis set failed, falling back to memory cache:', error)
+      redisAvailable = false
+    }
+  }
 
+  // Fallback to memory cache
   try {
-    const cacheKey = generateCacheKey(key, options.prefix)
-    const serializedValue = JSON.stringify(value)
-    const ttl = options.ttl || DEFAULT_TTL
-
-    await client.setex(cacheKey, ttl, serializedValue)
+    const expires = Date.now() + (ttl * 1000)
+    memoryCache.set(cacheKey, { value, expires })
     return true
   } catch (error) {
-    console.error('Cache set error:', error)
+    console.error('Memory cache set error:', error)
     return false
   }
 }
 
-// Get cache value
+// Get cache value (hybrid approach)
 export const getCache = async <T = any>(
   key: string, 
   prefix?: string
 ): Promise<T | null> => {
-  const client = getRedisClient()
-  if (!client) return null
+  const cacheKey = generateCacheKey(key, prefix)
 
+  // Try Redis first
+  const client = getRedisClient()
+  if (client && redisAvailable) {
+    try {
+      const cached = await client.get(cacheKey)
+      if (cached) {
+        return JSON.parse(cached) as T
+      }
+    } catch (error) {
+      console.warn('Redis get failed, falling back to memory cache:', error)
+      redisAvailable = false
+    }
+  }
+
+  // Fallback to memory cache
   try {
-    const cacheKey = generateCacheKey(key, prefix)
-    const cached = await client.get(cacheKey)
-    
+    const cached = memoryCache.get(cacheKey)
     if (!cached) return null
     
-    return JSON.parse(cached) as T
+    // Check if expired
+    if (Date.now() > cached.expires) {
+      memoryCache.delete(cacheKey)
+      return null
+    }
+    
+    return cached.value as T
   } catch (error) {
-    console.error('Cache get error:', error)
+    console.error('Memory cache get error:', error)
     return null
   }
 }
