@@ -6,16 +6,30 @@ import { decrypt } from '@/lib/encryption'
 import type { InsertGeneration, UpdateApiKey } from '@/types/supabase'
 
 export async function POST(request: NextRequest) {
+  console.log('Generate API called')
   try {
-    // Authenticate user
-    const supabase = createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Skip auth in development when Supabase is not available
+    const isDevelopment = process.env.NODE_ENV === 'development'
+    let user: any = null
     
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
+    if (!isDevelopment) {
+      // Authenticate user in production
+      const supabase = createServerClient()
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+      
+      console.log('Auth check:', { user: !!authUser, authError: !!authError })
+      
+      if (authError || !authUser) {
+        console.log('Auth failed:', authError?.message)
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized' },
+          { status: 401 }
+        )
+      }
+      user = authUser
+    } else {
+      console.log('Development mode: skipping auth')
+      user = { id: 'dev-user' } // Mock user for development
     }
 
     const body = await request.json()
@@ -28,75 +42,110 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get user's API keys
-    const { data: apiKeys, error: keysError } = await supabase
-      .from('api_keys')
-      .select('provider, encrypted_key')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-
-    if (keysError || !apiKeys || apiKeys.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'No API keys configured' },
-        { status: 400 }
-      )
-    }
-
-    // Find the requested provider's API key
-    const providerKey = apiKeys.find((key: any) => key.provider === provider)
-    if (!providerKey) {
-      return NextResponse.json(
-        { success: false, error: `No API key found for ${provider}` },
-        { status: 400 }
-      )
-    }
-
-    try {
-      // Decrypt the API key
-      const decryptedKey = decrypt(providerKey.encrypted_key)
-      
-      // Initialize provider manager with the specific provider
-      const providerManager = getProviderManager()
-      await providerManager.addProvider({
-        type: provider as ProviderType,
-        apiKey: decryptedKey
-      })
-
-      // Prepare generation options
-      const generationOptions: GenerationOptions = {
-        prompt,
-        negativePrompt: negativePrompt || undefined,
-        aspectRatio: aspectRatio || '1:1',
-        style: style || undefined,
-        model: model || undefined,
-        geminiConfig: provider === 'gemini' ? geminiConfig : undefined,
-        attachedFiles: provider === 'gemini' ? attachedFiles : undefined
+    let decryptedKey: string
+    
+    if (isDevelopment) {
+      // Use environment API key in development
+      if (provider === 'gemini') {
+        decryptedKey = process.env.GEMINI_API_KEY!
+      } else if (provider === 'openai') {
+        decryptedKey = process.env.OPENAI_API_KEY!
+      } else {
+        return NextResponse.json(
+          { success: false, error: `Provider ${provider} not supported in development` },
+          { status: 400 }
+        )
       }
       
-      // Debug log para verificar arquivos anexados
-      if (provider === 'gemini' && attachedFiles) {
-        console.log('Attached files being sent to Gemini:', attachedFiles.length, 'files')
-        attachedFiles.forEach((file: any, index: number) => {
-          console.log(`File ${index}:`, {
-            name: file.name,
-            type: file.type,
-            size: file.size,
-            hasData: !!file.data,
-            dataLength: file.data?.length || 0
-          })
+      if (!decryptedKey) {
+        return NextResponse.json(
+          { success: false, error: `No environment API key found for ${provider}` },
+          { status: 400 }
+        )
+      }
+      
+      console.log(`Using environment API key for ${provider}`)
+    } else {
+      // Get user's API keys from database in production
+      const supabase = createServerClient()
+      const { data: apiKeys, error: keysError } = await supabase
+        .from('api_keys')
+        .select('provider, encrypted_key')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+
+      if (keysError || !apiKeys || apiKeys.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'No API keys configured' },
+          { status: 400 }
+        )
+      }
+
+      // Find the requested provider's API key
+      const providerKey = apiKeys.find((key: any) => key.provider === provider)
+      if (!providerKey) {
+        return NextResponse.json(
+          { success: false, error: `No API key found for ${provider}` },
+          { status: 400 }
+        )
+      }
+
+      try {
+        // Decrypt the API key
+        decryptedKey = decrypt(providerKey.encrypted_key)
+      } catch (decryptError) {
+        console.error('Decryption error:', decryptError)
+        return NextResponse.json(
+          { success: false, error: 'Failed to access API key' },
+          { status: 500 }
+        )
+      }
+    }
+      
+    // Initialize provider manager with the specific provider
+    const providerManager = getProviderManager()
+    await providerManager.addProvider({
+      type: provider as ProviderType,
+      apiKey: decryptedKey
+    })
+
+    // Prepare generation options
+    const generationOptions: GenerationOptions = {
+      prompt,
+      negativePrompt: negativePrompt || undefined,
+      aspectRatio: aspectRatio || '1:1',
+      style: style || undefined,
+      model: model || undefined,
+      geminiConfig: provider === 'gemini' ? geminiConfig : undefined,
+      attachedFiles: provider === 'gemini' ? attachedFiles : undefined
+    }
+    
+    // Debug log para verificar arquivos anexados
+    if (provider === 'gemini' && attachedFiles) {
+      console.log('Attached files being sent to Gemini:', attachedFiles.length, 'files')
+      attachedFiles.forEach((file: any, index: number) => {
+        console.log(`File ${index}:`, {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          hasData: !!file.data,
+          dataLength: file.data?.length || 0
         })
-      }
+      })
+    }
 
-      // Generate the image
-      const startTime = Date.now()
-      const result = await providerManager.generateImage(provider as ProviderType, generationOptions)
-      const endTime = Date.now()
+    // Generate the image
+    const startTime = Date.now()
+    const result = await providerManager.generateImage(provider as ProviderType, generationOptions)
+    const endTime = Date.now()
 
-      if (!result.success) {
-        throw new Error(result.error || 'Generation failed')
-      }
+    if (!result.success) {
+      throw new Error(result.error || 'Generation failed')
+    }
 
-      // Save generation to database
+    // Save generation to database (only in production)
+    if (!isDevelopment) {
+      const supabase = createServerClient()
       const { error: saveError } = await supabase
         .from('generations')
         .insert({
@@ -129,23 +178,18 @@ export async function POST(request: NextRequest) {
       if (updateError) {
         console.error('Error updating API key timestamp:', updateError)
       }
-
-      return NextResponse.json({
-        success: true,
-        imageUrl: result.imageUrl,
-        metadata: {
-          ...result.metadata,
-          generationTime: endTime - startTime
-        }
-      })
-
-    } catch (decryptError) {
-      console.error('Decryption error:', decryptError)
-      return NextResponse.json(
-        { success: false, error: 'Failed to access API key' },
-        { status: 500 }
-      )
+    } else {
+      console.log('Development mode: skipping database save')
     }
+
+    return NextResponse.json({
+      success: true,
+      imageUrl: result.imageUrl,
+      metadata: {
+        ...result.metadata,
+        generationTime: endTime - startTime
+      }
+    })
 
   } catch (error: any) {
     console.error('Generation API error:', error)

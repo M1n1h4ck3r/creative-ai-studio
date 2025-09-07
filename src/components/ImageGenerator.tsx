@@ -172,6 +172,8 @@ export default function ImageGenerator() {
   }, [watchedValues])
 
   const onSubmit = async (data: GenerationFormData) => {
+    console.log('onSubmit called with:', { provider: data.provider, prompt: data.prompt.substring(0, 50) + '...' })
+    
     if (!hasApiKey(data.provider)) {
       toast.error(`Configure a API key do ${data.provider} primeiro`)
       return
@@ -196,16 +198,31 @@ export default function ImageGenerator() {
         attachedFiles: data.provider === 'gemini' ? attachedFiles : undefined
       }
 
+      console.log('Sending request to /api/generate with:', {
+        provider: requestData.provider,
+        hasAttachedFiles: !!requestData.attachedFiles && requestData.attachedFiles.length > 0
+      })
+
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestData),
       })
 
+      console.log('Response status:', response.status, response.statusText)
+      
       clearInterval(progressInterval)
       setProgress(100)
 
-      const result = await response.json()
+      let result
+      try {
+        result = await response.json()
+      } catch (jsonError) {
+        // Se não conseguir fazer parse do JSON, a resposta pode ser HTML de erro
+        const text = await response.text()
+        console.error('Non-JSON response:', text.substring(0, 200))
+        throw new Error(`Erro no servidor: ${response.status} - ${response.statusText}`)
+      }
 
       if (!response.ok) {
         throw new Error(result.error || 'Erro na geração')
