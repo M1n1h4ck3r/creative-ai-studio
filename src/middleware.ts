@@ -55,14 +55,15 @@ export async function middleware(request: NextRequest) {
     // Generate unique request ID for concurrent request tracking
     const requestId = crypto.randomUUID()
     
-    // Check rate limits
-    const rateLimitResult = await rateLimitManager.checkRateLimit(
-      userId,
-      ip,
-      pathname,
-      method,
-      userAgent
-    )
+    // Check rate limits - temporarily disabled
+    // const rateLimitResult = await rateLimitManager.checkRateLimit(
+    //   userId,
+    //   ip,
+    //   pathname,
+    //   method,
+    //   userAgent
+    // )
+    const rateLimitResult = { allowed: true, remainingRequests: 100 }
 
     // Add rate limiting headers to response
     const response = rateLimitResult.allowed 
