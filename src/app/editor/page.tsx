@@ -2,8 +2,12 @@
 
 import { useState } from 'react'
 import { Suspense } from 'react'
+import { Layout } from 'antd'
 import ImageEditor from '@/components/ImageEditor'
+import AntHeader from '@/components/ui/ant-header'
 import { useToast } from '@/hooks/use-toast'
+
+const { Content } = Layout
 
 export default function EditorPage() {
   const { toast } = useToast()
@@ -46,20 +50,27 @@ export default function EditorPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Image Editor</h1>
-        <p className="text-muted-foreground mt-2">
-          Edit, enhance, and create variations of your images with AI
-        </p>
-      </div>
-      
-      <Suspense fallback={<div>Loading editor...</div>}>
-        <ImageEditor 
-          onSave={handleSave}
-          onGenerate={handleGenerate}
-        />
-      </Suspense>
-    </div>
+    <Layout style={{ minHeight: '100vh', background: '#f5f7fa' }}>
+      <AntHeader 
+        title="Creative AI Studio" 
+        subtitle="Editor de Imagens IA" 
+        showNavigation={true} 
+      />
+      <Content style={{ padding: '24px' }}>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">Image Editor</h1>
+          <p className="text-muted-foreground mt-2">
+            Edit, enhance, and create variations of your images with AI
+          </p>
+        </div>
+        
+        <Suspense fallback={<div>Loading editor...</div>}>
+          <ImageEditor 
+            onSave={handleSave}
+            onGenerate={handleGenerate}
+          />
+        </Suspense>
+      </Content>
+    </Layout>
   )
 }

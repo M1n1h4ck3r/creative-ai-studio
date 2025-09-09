@@ -164,8 +164,8 @@ export async function POST(request: NextRequest) {
       throw new Error(result.error || 'Generation failed')
     }
 
-    // Save generation to database (only in production)
-    if (!isDevelopment) {
+    // Save generation to database (in both development and production)
+    try {
       const supabase = createServerClient()
       const { error: saveError } = await supabase
         .from('generations')
@@ -185,10 +185,24 @@ export async function POST(request: NextRequest) {
 
       if (saveError) {
         console.error('Error saving generation:', saveError)
-        // Don't fail the request if we can't save to DB
+        // Don't fail the request if we can't save to DB in development
+        if (!isDevelopment) {
+          throw saveError
+        }
+      } else {
+        console.log('Generation saved to database successfully')
       }
+    } catch (dbError) {
+      console.error('Database save error:', dbError)
+      // Don't fail the request in development if DB is not available
+      if (!isDevelopment) {
+        throw dbError
+      }
+    }
 
-      // Update API key last used timestamp
+    // Update API key last used timestamp only in production
+    if (!isDevelopment) {
+      const supabase = createServerClient()
       const { error: updateError } = await supabase
         .from('api_keys')
         .update({ last_used_at: new Date().toISOString() } as any)

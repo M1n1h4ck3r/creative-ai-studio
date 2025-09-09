@@ -41,8 +41,12 @@ import {
   UploadOutlined,
   DeleteOutlined,
   EyeOutlined,
-  StarOutlined
+  StarOutlined,
+  FormatPainterOutlined
 } from '@ant-design/icons'
+import FormatSelector from '@/components/FormatSelector'
+import { FormatSelection } from '@/types/formats'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 const { TextArea } = Input
 const { Text, Title } = Typography
@@ -82,6 +86,11 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
   const [progress, setProgress] = useState(0)
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [attachedImages, setAttachedImages] = useState<File[]>([])
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([])
+  const [selectedFormats, setSelectedFormats] = useState<string[]>(['instagram-square'])
+  const [showFormatSelector, setShowFormatSelector] = useState(false)
+  const [batchGeneration, setBatchGeneration] = useState(false)
   
   // React Spring animations
   const containerAnimation = useSpring({
@@ -127,6 +136,15 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
     config: config.wobbly
   })
 
+  const handleFormatSelection = useCallback((selection: FormatSelection) => {
+    setSelectedFormats(selection.selectedFormats)
+    setBatchGeneration(selection.batchGeneration)
+    
+    if (selection.selectedFormats.length > 0) {
+      message.success(`${selection.selectedFormats.length} formato${selection.selectedFormats.length > 1 ? 's' : ''} selecionado${selection.selectedFormats.length > 1 ? 's' : ''}`)
+    }
+  }, [])
+
   const handleGenerate = useCallback(async (values: any) => {
     setLoading(true)
     setProgress(0)
@@ -143,11 +161,37 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
         })
       }, 500)
 
+      // Convert attached images to base64 if any
+      let attachedFilesData = null
+      if (attachedImages.length > 0) {
+        attachedFilesData = await Promise.all(
+          attachedImages.map(async (file) => {
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader()
+              reader.onload = () => resolve(reader.result as string)
+              reader.readAsDataURL(file)
+            })
+            return {
+              name: file.name,
+              type: file.type,
+              size: file.size,
+              data: base64
+            }
+          })
+        )
+      }
+
       // Call the actual generation API
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values)
+        body: JSON.stringify({
+          ...values,
+          attachedFiles: attachedFilesData,
+          format: selectedFormats[0], // Use first selected format
+          selectedFormats: batchGeneration ? selectedFormats : undefined,
+          batchGeneration
+        })
       })
 
       const data = await response.json()
@@ -180,6 +224,51 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
     const newPrompt = currentPrompt + ` in ${style} style`
     form.setFieldsValue({ prompt: newPrompt })
     message.info(`Estilo ${style} adicionado!`)
+  }
+
+  const handleImageUpload = (info: any) => {
+    const { fileList } = info
+    const validFiles = fileList.filter((file: any) => {
+      const isImage = file.type?.startsWith('image/')
+      if (!isImage && file.originFileObj) {
+        message.error(`${file.name} não é uma imagem válida`)
+      }
+      return isImage
+    })
+
+    setAttachedImages(validFiles.map((file: any) => file.originFileObj).filter(Boolean))
+    
+    // Create preview URLs
+    const previewUrls = validFiles.map((file: any) => {
+      if (file.originFileObj) {
+        return URL.createObjectURL(file.originFileObj)
+      }
+      return file.url || file.thumbUrl
+    }).filter(Boolean)
+    
+    setImagePreviewUrls(previewUrls)
+    
+    if (validFiles.length > 0) {
+      message.success(`${validFiles.length} imagem(ns) anexada(s)`)
+    }
+  }
+
+  const handleRemoveImage = (index: number) => {
+    const newAttachedImages = [...attachedImages]
+    const newPreviewUrls = [...imagePreviewUrls]
+    
+    // Revoke the object URL to free memory
+    if (newPreviewUrls[index]) {
+      URL.revokeObjectURL(newPreviewUrls[index])
+    }
+    
+    newAttachedImages.splice(index, 1)
+    newPreviewUrls.splice(index, 1)
+    
+    setAttachedImages(newAttachedImages)
+    setImagePreviewUrls(newPreviewUrls)
+    
+    message.info('Imagem removida')
   }
 
   return (
@@ -260,6 +349,105 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
                       </Option>
                     ))}
                   </Select>
+                </Form.Item>
+
+                {/* Image Upload Section */}
+                <Form.Item
+                  label={
+                    <Space>
+                      <UploadOutlined />
+                      <span>Anexar Imagens de Referência</span>
+                      <Badge count={attachedImages.length} style={{ backgroundColor: '#52c41a' }} />
+                    </Space>
+                  }
+                >
+                  <Upload
+                    multiple
+                    accept="image/*"
+                    listType="picture-card"
+                    showUploadList={false}
+                    beforeUpload={() => false}
+                    onChange={handleImageUpload}
+                  >
+                    <div>
+                      <UploadOutlined />
+                      <div style={{ marginTop: 8 }}>
+                        Anexar Imagem
+                      </div>
+                    </div>
+                  </Upload>
+
+                  {/* Preview of attached images */}
+                  {imagePreviewUrls.length > 0 && (
+                    <div style={{ marginTop: 16 }}>
+                      <Row gutter={[8, 8]}>
+                        {imagePreviewUrls.map((url, index) => (
+                          <Col xs={12} sm={8} md={6} key={index}>
+                            <div
+                              style={{
+                                position: 'relative',
+                                borderRadius: 8,
+                                overflow: 'hidden',
+                                border: '1px solid #d9d9d9',
+                              }}
+                            >
+                              <Image
+                                src={url}
+                                alt={`Anexo ${index + 1}`}
+                                style={{
+                                  width: '100%',
+                                  height: 80,
+                                  objectFit: 'cover',
+                                }}
+                                preview={false}
+                              />
+                              <Button
+                                type="primary"
+                                danger
+                                size="small"
+                                icon={<DeleteOutlined />}
+                                style={{
+                                  position: 'absolute',
+                                  top: 4,
+                                  right: 4,
+                                  width: 24,
+                                  height: 24,
+                                  minWidth: 24,
+                                  padding: 0,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                                onClick={() => handleRemoveImage(index)}
+                              />
+                            </div>
+                            <Text
+                              style={{
+                                fontSize: 11,
+                                color: '#666',
+                                display: 'block',
+                                marginTop: 4,
+                                textAlign: 'center',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {attachedImages[index]?.name}
+                            </Text>
+                          </Col>
+                        ))}
+                      </Row>
+                      
+                      <Alert
+                        message="💡 Dica sobre imagens"
+                        description={`${attachedImages.length} imagem(ns) anexada(s). Estas imagens serão usadas como referência para a geração. Funciona melhor com o Google Gemini.`}
+                        type="info"
+                        showIcon
+                        style={{ marginTop: 12, fontSize: 12 }}
+                      />
+                    </div>
+                  )}
                 </Form.Item>
 
                 {/* Advanced Settings */}
@@ -381,6 +569,84 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
                   </animated.div>
                 ))}
               </Space>
+            </Card>
+
+            {/* Format Selector */}
+            <Card
+              title={
+                <Space>
+                  <FormatPainterOutlined />
+                  <span>Formatos</span>
+                  {selectedFormats.length > 1 && (
+                    <Badge count={selectedFormats.length} color="#722ed1" />
+                  )}
+                </Space>
+              }
+              size="small"
+              bordered={false}
+              extra={
+                <Button
+                  type="text"
+                  size="small"
+                  onClick={() => setShowFormatSelector(!showFormatSelector)}
+                >
+                  {showFormatSelector ? 'Ocultar' : 'Expandir'}
+                </Button>
+              }
+            >
+              {showFormatSelector ? (
+                <TooltipProvider>
+                  <FormatSelector
+                    onFormatSelect={handleFormatSelection}
+                    selectedFormats={selectedFormats}
+                    allowMultiple={true}
+                    showBatchGeneration={true}
+                  />
+                </TooltipProvider>
+              ) : (
+                <div>
+                  {selectedFormats.length > 0 ? (
+                    <div>
+                      <Text style={{ fontSize: 13, color: '#666', marginBottom: 8, display: 'block' }}>
+                        {selectedFormats.length} formato{selectedFormats.length > 1 ? 's' : ''} selecionado{selectedFormats.length > 1 ? 's' : ''}
+                        {batchGeneration && (
+                          <Tag size="small" color="purple" style={{ marginLeft: 8 }}>
+                            Lote
+                          </Tag>
+                        )}
+                      </Text>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {selectedFormats.slice(0, 2).map(formatId => {
+                          // We need to import FORMAT_PRESETS here
+                          return (
+                            <Tag key={formatId} size="small" color="blue">
+                              {formatId.replace('-', ' ')}
+                            </Tag>
+                          )
+                        })}
+                        {selectedFormats.length > 2 && (
+                          <Tag size="small" color="default">
+                            +{selectedFormats.length - 2} mais
+                          </Tag>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                      Selecione um formato para sua imagem
+                    </Text>
+                  )}
+                  <Button
+                    type="dashed"
+                    size="small"
+                    block
+                    style={{ marginTop: 8 }}
+                    onClick={() => setShowFormatSelector(true)}
+                  >
+                    Escolher Formatos
+                  </Button>
+                </div>
+              )}
             </Card>
 
             {/* Style Presets */}

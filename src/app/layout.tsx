@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ApiKeyProvider } from '@/contexts/ApiKeyContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { ThemeProvider as NextThemeProvider } from 'next-themes'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/react'
 import PageTracker from '@/components/Analytics/PageTracker'
@@ -29,44 +30,46 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className={inter.className}>
         <AntdRegistry>
-          <ConfigProvider
-            locale={ptBR}
-            theme={{
-              algorithm: [antdTheme.defaultAlgorithm],
-              token: {
-                colorPrimary: '#3b82f6',
-                colorSuccess: '#10b981',
-                colorWarning: '#f59e0b',
-                colorError: '#ef4444',
-                borderRadius: 8,
-                fontFamily: inter.style.fontFamily,
-              },
-              components: {
-                Button: {
+          <NextThemeProvider attribute="class" defaultTheme="light">
+            <ConfigProvider
+              locale={ptBR}
+              theme={{
+                algorithm: [antdTheme.defaultAlgorithm],
+                token: {
+                  colorPrimary: '#3b82f6',
+                  colorSuccess: '#10b981',
+                  colorWarning: '#f59e0b',
+                  colorError: '#ef4444',
                   borderRadius: 8,
-                  controlHeight: 40,
+                  fontFamily: inter.style.fontFamily,
                 },
-                Input: {
-                  borderRadius: 8,
-                  controlHeight: 40,
+                components: {
+                  Button: {
+                    borderRadius: 8,
+                    controlHeight: 40,
+                  },
+                  Input: {
+                    borderRadius: 8,
+                    controlHeight: 40,
+                  },
+                  Card: {
+                    borderRadius: 12,
+                  },
                 },
-                Card: {
-                  borderRadius: 12,
-                },
-              },
-            }}
-          >
-            <ThemeProvider>
-              <AuthProvider>
-                <ApiKeyProvider>
-                  <PageTracker />
-                  {children}
-                  <Toaster position="top-right" richColors />
-                  <Analytics />
-                </ApiKeyProvider>
-              </AuthProvider>
-            </ThemeProvider>
-          </ConfigProvider>
+              }}
+            >
+              <ThemeProvider>
+                <AuthProvider>
+                  <ApiKeyProvider>
+                    <PageTracker />
+                    {children}
+                    <Toaster position="top-right" richColors />
+                    <Analytics />
+                  </ApiKeyProvider>
+                </AuthProvider>
+              </ThemeProvider>
+            </ConfigProvider>
+          </NextThemeProvider>
         </AntdRegistry>
       </body>
     </html>

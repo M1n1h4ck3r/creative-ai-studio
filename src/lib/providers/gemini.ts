@@ -7,6 +7,7 @@ import {
   ProviderInfo,
   ProviderCapabilities 
 } from './types'
+import { FORMAT_PRESETS, getDimensionsFromAspectRatio } from '@/types/formats'
 
 export class GeminiProvider extends AIProvider {
   private genAI: GoogleGenerativeAI
@@ -75,12 +76,44 @@ export class GeminiProvider extends AIProvider {
         }
       }
 
-      // Build the enhanced prompt with style and negative prompts
+      // Process format information
+      let dimensions = { width: 1024, height: 1024 } // Default square
+      let aspectRatioInfo = ''
+      
+      if (options.format && FORMAT_PRESETS[options.format]) {
+        const format = FORMAT_PRESETS[options.format]
+        dimensions = {
+          width: format.dimensions.width,
+          height: format.dimensions.height
+        }
+        aspectRatioInfo = `Format: ${format.name} (${format.aspectRatio}), optimized for: ${format.useCases.join(', ')}. `
+      } else if (options.aspectRatio) {
+        const formatDimensions = getDimensionsFromAspectRatio(options.aspectRatio)
+        dimensions = {
+          width: formatDimensions.width,
+          height: formatDimensions.height
+        }
+        aspectRatioInfo = `Aspect ratio: ${options.aspectRatio}. `
+      } else if (options.width && options.height) {
+        dimensions = {
+          width: options.width,
+          height: options.height
+        }
+        const ratio = Math.round((options.width / options.height) * 100) / 100
+        aspectRatioInfo = `Custom dimensions: ${options.width}×${options.height} (ratio: ${ratio}). `
+      }
+
+      // Build the enhanced prompt with format, style and negative prompts
       let enhancedPrompt = options.prompt
+      
+      // Add format context to the prompt
+      if (aspectRatioInfo) {
+        enhancedPrompt = `${aspectRatioInfo}${enhancedPrompt}`
+      }
       
       // If there are attached files, modify the prompt to be clear about image generation
       if (options.attachedFiles && options.attachedFiles.length > 0) {
-        enhancedPrompt = `Generate a new image based on the following prompt: "${options.prompt}". Use the attached image(s) as visual reference or inspiration. Create a completely new image following the description.`
+        enhancedPrompt = `Generate a new image based on the following prompt: "${enhancedPrompt}". Use the attached image(s) as visual reference or inspiration. Create a completely new image following the description.`
       }
       
       if (options.style) {
@@ -164,7 +197,11 @@ export class GeminiProvider extends AIProvider {
           steps: options.steps,
           guidance: options.guidance,
           generationTime,
-          cost: 0
+          cost: 0,
+          width: dimensions.width,
+          height: dimensions.height,
+          format: options.format,
+          aspectRatio: options.aspectRatio || (options.format && FORMAT_PRESETS[options.format]?.aspectRatio)
         }
       }
     } catch (error: any) {
@@ -221,9 +258,9 @@ export class GeminiProvider extends AIProvider {
       documentation: 'https://ai.google.dev/gemini-api/docs/image-generation',
       keyFormat: 'AIzaSy...',
       capabilities: {
-        maxWidth: 1024,
-        maxHeight: 1024,
-        supportedAspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+        maxWidth: 1920,
+        maxHeight: 1920,
+        supportedAspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9', '2:3', '3:2'],
         supportedStyles: [
           'photorealistic', 
           'artistic', 
@@ -435,6 +472,42 @@ export class GeminiProvider extends AIProvider {
         error: error.message || 'Conversational editing failed'
       }
     }
+  }
+
+  // Batch generation for multiple formats
+  async generateMultipleFormats(
+    baseOptions: GenerationOptions,
+    formatIds: string[]
+  ): Promise<Array<GenerationResult & { formatId: string; formatInfo?: any }>> {
+    const results: Array<GenerationResult & { formatId: string; formatInfo?: any }> = []
+    
+    for (const formatId of formatIds) {
+      try {
+        const formatOptions = {
+          ...baseOptions,
+          format: formatId
+        }
+        
+        const result = await this.generateImage(formatOptions)
+        results.push({
+          ...result,
+          formatId,
+          formatInfo: FORMAT_PRESETS[formatId]
+        })
+        
+        // Add small delay between requests to avoid rate limiting
+        await this.sleep(500)
+      } catch (error: any) {
+        results.push({
+          success: false,
+          error: error.message || 'Generation failed',
+          formatId,
+          formatInfo: FORMAT_PRESETS[formatId]
+        })
+      }
+    }
+    
+    return results
   }
 
   // Helper method to convert File to base64

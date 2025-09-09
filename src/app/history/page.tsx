@@ -1,27 +1,29 @@
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { ArrowLeft } from 'lucide-react'
+'use client'
+
+import { Layout } from 'antd'
+import AntHeader from '@/components/ui/ant-header'
 import ImageHistory from '@/components/ImageHistory'
+
+const { Content } = Layout
 
 export default function HistoryPage() {
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <div className="flex items-center gap-4 mb-4">
-          <Link href="/dashboard">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Voltar
-            </Button>
-          </Link>
+    <Layout style={{ minHeight: '100vh', background: '#f5f7fa' }}>
+      <AntHeader 
+        title="Creative AI Studio" 
+        subtitle="Histórico de Imagens" 
+        showNavigation={true} 
+      />
+      <Content style={{ padding: '24px' }}>
+        <div className="mb-8">
           <h1 className="text-3xl font-bold">Histórico de Imagens</h1>
+          <p className="text-muted-foreground">
+            Visualize e gerencie suas imagens geradas
+          </p>
         </div>
-        <p className="text-muted-foreground">
-          Visualize e gerencie suas imagens geradas
-        </p>
-      </div>
-      
-      <ImageHistory />
-    </div>
+        
+        <ImageHistory />
+      </Content>
+    </Layout>
   )
 }

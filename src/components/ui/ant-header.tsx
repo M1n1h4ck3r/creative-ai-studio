@@ -33,7 +33,7 @@ import {
   RocketOutlined
 } from '@ant-design/icons'
 import Link from 'next/link'
-// import { useTheme } from 'next-themes'
+import { useTheme } from 'next-themes'
 
 const { Header } = Layout
 const { Text } = Typography
@@ -59,7 +59,7 @@ export function AntHeader({
   showNavigation = true 
 }: AntHeaderProps) {
   const [drawerVisible, setDrawerVisible] = useState(false)
-  // const { theme, setTheme } = useTheme() // Disabled until next-themes is properly configured
+  const { theme, setTheme } = useTheme()
   
   // React Spring animations
   const logoAnimation = useSpring({
@@ -137,13 +137,12 @@ export function AntHeader({
 
   const themeSwitch = (
     <Space>
-      <SunOutlined />
+      {theme === 'dark' ? <MoonOutlined /> : <SunOutlined />}
       <Switch
         checkedChildren={<MoonOutlined />}
         unCheckedChildren={<SunOutlined />}
-        checked={false}
-        onChange={() => {}} // Disabled until next-themes is properly configured
-        disabled
+        checked={theme === 'dark'}
+        onChange={(checked) => setTheme(checked ? 'dark' : 'light')}
       />
     </Space>
   )

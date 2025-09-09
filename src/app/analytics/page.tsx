@@ -1,8 +1,12 @@
 'use client'
 
 import { Suspense } from 'react'
+import { Layout } from 'antd'
 import AnalyticsDashboard from '@/components/Analytics/AnalyticsDashboard'
+import AntHeader from '@/components/ui/ant-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+const { Content } = Layout
 
 function LoadingSkeleton() {
   return (
@@ -53,10 +57,17 @@ function LoadingSkeleton() {
 
 export default function AnalyticsPage() {
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Suspense fallback={<LoadingSkeleton />}>
-        <AnalyticsDashboard />
-      </Suspense>
-    </div>
+    <Layout style={{ minHeight: '100vh', background: '#f5f7fa' }}>
+      <AntHeader 
+        title="Creative AI Studio" 
+        subtitle="Analytics e Métricas" 
+        showNavigation={true} 
+      />
+      <Content style={{ padding: '24px' }}>
+        <Suspense fallback={<LoadingSkeleton />}>
+          <AnalyticsDashboard />
+        </Suspense>
+      </Content>
+    </Layout>
   )
 }

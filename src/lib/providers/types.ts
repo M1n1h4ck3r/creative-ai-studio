@@ -26,6 +26,7 @@ export interface GenerationOptions {
   width?: number
   height?: number
   aspectRatio?: string
+  format?: string // Format ID from formats.ts
   style?: string
   quality?: 'standard' | 'hd'
   steps?: number
@@ -41,6 +42,8 @@ export interface GenerationOptions {
   stylePreset?: string
   geminiConfig?: GeminiConfig
   attachedFiles?: AttachedFile[]
+  batchGeneration?: boolean // For generating multiple formats
+  selectedFormats?: string[] // Array of format IDs for batch generation
 }
 
 export interface GenerationResult {
