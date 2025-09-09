@@ -344,9 +344,7 @@ export const flushAnalyticsEvents = async (): Promise<any[]> => {
   }
 }
 
-// Memory cache fallback for when Redis is unavailable
-const memoryCache = new Map<string, { value: any; expires: number }>()
-
+// Memory cache functions using the LRUCache instance above
 export const setMemoryCache = (
   key: string, 
   value: any, 
@@ -372,16 +370,6 @@ export const getMemoryCache = <T = any>(key: string): T | null => {
 export const deleteMemoryCache = (key: string): void => {
   memoryCache.delete(key)
 }
-
-// Cleanup expired memory cache entries
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, cached] of memoryCache.entries()) {
-    if (now > cached.expires) {
-      memoryCache.delete(key)
-    }
-  }
-}, 60000) // Clean up every minute
 
 export default {
   getRedisClient,

@@ -3,8 +3,10 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ApiKeyProvider } from '@/contexts/ApiKeyContext'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/react'
+import PageTracker from '@/components/Analytics/PageTracker'
 // import { ErrorBoundary } from '@/components/ErrorBoundary'
 // import { MonitoringProvider } from '@/components/MonitoringProvider'
 
@@ -23,13 +25,16 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
-        <AuthProvider>
-          <ApiKeyProvider>
-            {children}
-            <Toaster position="top-right" richColors />
-            <Analytics />
-          </ApiKeyProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ApiKeyProvider>
+              <PageTracker />
+              {children}
+              <Toaster position="top-right" richColors />
+              <Analytics />
+            </ApiKeyProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

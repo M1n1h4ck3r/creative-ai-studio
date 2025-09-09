@@ -39,11 +39,41 @@ export class GeminiProvider extends AIProvider {
         if (config.responseMimeType) generationConfig.responseMimeType = config.responseMimeType
       }
       
-      // Use Gemini 2.5 Flash Image model for native image generation
-      const model = this.genAI.getGenerativeModel({ 
-        model: options.model || 'gemini-2.5-flash-image-preview',
-        generationConfig: Object.keys(generationConfig).length > 0 ? generationConfig : undefined
-      })
+      // Try different models in case of issues
+      let modelName = options.model || 'gemini-2.5-flash-image-preview'
+      
+      // Fallback models if the primary doesn't work
+      const fallbackModels = [
+        'gemini-2.5-flash-image-preview',
+        'imagen-3.0-generate-001',  
+        'imagen-3.0-fast-generate-001',
+        'gemini-1.5-flash'
+      ]
+      
+      let model
+      let modelUsed = modelName
+      
+      try {
+        model = this.genAI.getGenerativeModel({ model: modelName })
+        console.log('Gemini Debug - Using model:', modelName)
+      } catch (modelError) {
+        console.warn('Model creation failed for', modelName, '- trying fallbacks')
+        
+        for (const fallback of fallbackModels) {
+          try {
+            model = this.genAI.getGenerativeModel({ model: fallback })
+            modelUsed = fallback
+            console.log('Gemini Debug - Using fallback model:', fallback)
+            break
+          } catch (fallbackError) {
+            console.warn('Fallback model failed:', fallback, fallbackError)
+          }
+        }
+        
+        if (!model) {
+          throw new Error('All Gemini models failed to initialize')
+        }
+      }
 
       // Build the enhanced prompt with style and negative prompts
       let enhancedPrompt = options.prompt
@@ -61,31 +91,18 @@ export class GeminiProvider extends AIProvider {
         enhancedPrompt += `. Avoid: ${options.negativePrompt}`
       }
 
-      // Prepare content array (prompt + attached files)
-      const contents: any[] = [enhancedPrompt]
+      console.log('Gemini Debug - Enhanced prompt:', enhancedPrompt)
+      console.log('Gemini Debug - Model being used:', options.model || 'gemini-2.5-flash-image-preview')
       
-      // Add attached files if provided
-      if (options.attachedFiles && options.attachedFiles.length > 0) {
-        console.log('Processing attached files for Gemini:', options.attachedFiles.length)
-        for (const file of options.attachedFiles) {
-          console.log('Adding file to contents:', {
-            name: file.name,
-            type: file.type,
-            hasData: !!file.data,
-            dataLength: file.data?.length || 0
-          })
-          contents.push({
-            inlineData: {
-              data: file.data,
-              mimeType: file.type
-            }
-          })
-        }
-        console.log('Final contents array length:', contents.length)
-      }
+      // Simplify content for debugging - just use the prompt
+      const contents = [enhancedPrompt]
+      
+      console.log('Gemini Debug - Contents array:', contents)
 
       // Generate image using Gemini's native capabilities
+      console.log('Gemini Debug - About to call generateContent...')
       const result = await model.generateContent(contents)
+      console.log('Gemini Debug - generateContent result:', result)
       
       if (!result.response) {
         throw new Error('No response from Gemini model')
@@ -142,7 +159,7 @@ export class GeminiProvider extends AIProvider {
         imageUrl,
         imageData, // Include raw base64 data
         metadata: {
-          model: options.model || 'gemini-2.5-flash-image-preview',
+          model: modelUsed,
           seed: options.seed,
           steps: options.steps,
           guidance: options.guidance,
@@ -152,9 +169,25 @@ export class GeminiProvider extends AIProvider {
       }
     } catch (error: any) {
       console.error('Gemini generation error:', error)
+      
+      // More detailed error message based on the specific error
+      let errorMessage = 'Image generation failed'
+      
+      if (error.message?.includes('Invalid argument')) {
+        errorMessage = 'Invalid request format for Gemini API. The model may not be available or the request format is incorrect.'
+      } else if (error.message?.includes('API_KEY')) {
+        errorMessage = 'Invalid or missing Gemini API key. Please check your API key configuration.'
+      } else if (error.message?.includes('quota')) {
+        errorMessage = 'Gemini API quota exceeded. Please try again later.'
+      } else if (error.message?.includes('model')) {
+        errorMessage = 'Gemini image model not available. The service may be in preview or unavailable in your region.'
+      } else {
+        errorMessage = error.message || 'Image generation failed'
+      }
+      
       return {
         success: false,
-        error: error.message || 'Image generation failed'
+        error: errorMessage
       }
     }
   }

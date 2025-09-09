@@ -20,6 +20,11 @@ import { getProviderManager } from '@/lib/providers/manager'
 import { ProviderType, GenerationOptions } from '@/lib/providers/types'
 import PromptTemplates from '@/components/PromptTemplates'
 import GeminiAdvancedControls from '@/components/GeminiAdvancedControls'
+import ImageVariations from '@/components/ImageVariations'
+import ImageCollections from '@/components/ImageCollections'
+import SocialShare from '@/components/SocialShare'
+import ImageEditor from '@/components/ImageEditor'
+import { GenerationLoadingAnimation } from '@/components/ui/loading-animation'
 import { analytics } from '@/lib/analytics'
 
 const generationSchema = z.object({
@@ -174,13 +179,19 @@ export default function ImageGenerator() {
   const onSubmit = async (data: GenerationFormData) => {
     console.log('onSubmit called with:', { provider: data.provider, prompt: data.prompt.substring(0, 50) + '...' })
     
+    // Track generation start
+    analytics.imageGeneration.started(data.provider, data.prompt)
+    
     if (!hasApiKey(data.provider)) {
       toast.error(`Configure a API key do ${data.provider} primeiro`)
+      analytics.error.caught(new Error('Missing API key'), `provider: ${data.provider}`)
       return
     }
 
     setIsGenerating(true)
     setProgress(0)
+    
+    const startTime = Date.now()
     
     try {
       // Start progress animation
@@ -229,6 +240,11 @@ export default function ImageGenerator() {
       }
 
       if (result.success) {
+        const duration = Date.now() - startTime
+        
+        // Track successful generation
+        analytics.imageGeneration.completed(data.provider, duration, true)
+        
         const generatedImageData = {
           url: result.imageUrl,
           prompt: data.prompt,
@@ -255,6 +271,10 @@ export default function ImageGenerator() {
       }
     } catch (error: any) {
       console.error('Generation error:', error)
+      
+      // Track failed generation
+      analytics.imageGeneration.failed(data.provider, error.message || 'Unknown error')
+      
       toast.error(error.message || 'Erro ao gerar imagem')
     } finally {
       setIsGenerating(false)
@@ -289,9 +309,13 @@ export default function ImageGenerator() {
         document.body.removeChild(a)
       }
       
+      // Track successful download
+      analytics.user.imageDownloaded(generatedImage.provider)
+      
       toast.success('Download iniciado!')
     } catch (error) {
       toast.error('Erro ao fazer download')
+      analytics.error.caught(error as Error, 'image_download')
     }
   }
 
@@ -299,6 +323,10 @@ export default function ImageGenerator() {
     form.setValue('prompt', template.prompt)
     form.setValue('aspectRatio', template.aspectRatio)
     setShowTemplates(false)
+    
+    // Track template usage
+    analytics.user.templateUsed(template.id || template.title)
+    
     toast.success(`Template "${template.title}" aplicado!`)
   }
 
@@ -343,9 +371,9 @@ export default function ImageGenerator() {
         onFilesChange={setAttachedFiles}
       />
       
-      <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
+      <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'>
         {/* Generation Form */}
-        <Card>
+        <Card className='xl:col-span-2'>
         <CardHeader>
           <div className='flex items-center justify-between'>
             <div className='flex items-center space-x-2'>
@@ -551,23 +579,10 @@ export default function ImageGenerator() {
         </CardHeader>
         <CardContent>
           {isGenerating ? (
-            <div className='space-y-4'>
-              <Skeleton className='aspect-square w-full rounded-lg' />
-              <div className='space-y-3'>
-                <div className='flex items-center justify-between'>
-                  <Skeleton className='h-4 w-16' />
-                  <Skeleton className='h-6 w-20' />
-                </div>
-                <div className='space-y-2'>
-                  <Skeleton className='h-4 w-12' />
-                  <Skeleton className='h-12 w-full' />
-                </div>
-                <div className='flex space-x-2'>
-                  <Skeleton className='h-3 w-16' />
-                  <Skeleton className='h-3 w-20' />
-                </div>
-              </div>
-            </div>
+            <GenerationLoadingAnimation 
+              progress={progress}
+              text="Criando sua imagem..."
+            />
           ) : generatedImage ? (
             <div className='space-y-4'>
               <div className='relative group'>
@@ -618,6 +633,35 @@ export default function ImageGenerator() {
                     )}
                   </div>
                 )}
+                
+                {/* Image Actions */}
+                <div className='pt-2 border-t space-y-3'>
+                  <div className='flex gap-2 flex-wrap'>
+                    <ImageEditor
+                      image={{
+                        url: generatedImage.url,
+                        prompt: generatedImage.prompt,
+                        provider: generatedImage.provider
+                      }}
+                    />
+                    <ImageVariations 
+                      originalImage={{
+                        url: generatedImage.url,
+                        prompt: generatedImage.prompt,
+                        provider: generatedImage.provider,
+                        metadata: generatedImage.metadata
+                      }}
+                    />
+                    <SocialShare
+                      image={{
+                        url: generatedImage.url,
+                        prompt: generatedImage.prompt,
+                        provider: generatedImage.provider,
+                        metadata: generatedImage.metadata
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
@@ -632,6 +676,18 @@ export default function ImageGenerator() {
           )}
         </CardContent>
       </Card>
+      
+      {/* Collections Sidebar - Only visible on xl screens */}
+      <div className="hidden xl:block">
+        <ImageCollections 
+          currentImage={generatedImage ? {
+            url: generatedImage.url,
+            prompt: generatedImage.prompt,
+            provider: generatedImage.provider,
+            metadata: generatedImage.metadata
+          } : undefined}
+        />
+      </div>
       </div>
     </div>
   )

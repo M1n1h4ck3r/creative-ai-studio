@@ -1,58 +1,155 @@
 import { Analytics } from '@vercel/analytics/react'
 
-// Enhanced analytics with multiple providers
-export const trackEvent = (eventName: string, properties?: Record<string, any>) => {
-  if (typeof window === 'undefined') return
+// Enhanced analytics with multiple providers and batch support
+class AnalyticsManager {
+  private eventQueue: Array<{event: string, properties: Record<string, any>, timestamp: number}> = []
+  private batchTimeout?: NodeJS.Timeout
+  private readonly BATCH_SIZE = 10
+  private readonly BATCH_TIMEOUT = 5000 // 5 seconds
 
-  // Vercel Analytics
-  if (process.env.NEXT_PUBLIC_VERCEL_ANALYTICS_ID) {
-    // @ts-ignore - Vercel analytics
-    window.va?.track(eventName, properties)
+  constructor() {
+    if (typeof window !== 'undefined') {
+      // Flush queue on page unload
+      window.addEventListener('beforeunload', () => {
+        this.flush()
+      })
+
+      // Track page visibility changes
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          this.trackEvent('page_hidden')
+        } else {
+          this.trackEvent('page_visible')
+        }
+      })
+
+      // Track performance metrics
+      this.trackWebVitals()
+    }
   }
 
-  // Google Analytics 4
-  if (process.env.NEXT_PUBLIC_GA_ID && typeof window !== 'undefined') {
-    // @ts-ignore - Google Analytics
-    window.gtag?.('event', eventName, {
-      ...properties,
-      event_category: 'ai_studio',
-      timestamp: new Date().toISOString(),
-    })
+  trackEvent(eventName: string, properties?: Record<string, any>) {
+    if (typeof window === 'undefined') return
+
+    const eventData = {
+      event: eventName,
+      properties: {
+        ...properties,
+        timestamp: new Date().toISOString(),
+        session_id: getSessionId(),
+        user_id: getUserId(),
+        url: window.location.href,
+        user_agent: navigator.userAgent
+      },
+      timestamp: Date.now()
+    }
+
+    // Add to queue for batching
+    this.eventQueue.push(eventData)
+
+    // Immediate external service tracking
+    this.trackToExternalServices(eventName, eventData.properties)
+
+    // Custom event tracking for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📊 Analytics Event:', eventData)
+    }
+
+    // Batch processing
+    if (this.eventQueue.length >= this.BATCH_SIZE) {
+      this.flush()
+    } else {
+      this.scheduleBatch()
+    }
   }
 
-  // Mixpanel tracking
-  if (process.env.NEXT_PUBLIC_MIXPANEL_TOKEN && typeof window !== 'undefined') {
-    // @ts-ignore - Mixpanel
-    window.mixpanel?.track(eventName, {
-      ...properties,
-      app: 'creative-ai-studio',
-      timestamp: Date.now(),
-      user_agent: navigator.userAgent,
-      url: window.location.href,
-    })
+  private trackToExternalServices(eventName: string, properties: Record<string, any>) {
+    // Vercel Analytics
+    if (process.env.NEXT_PUBLIC_VERCEL_ANALYTICS_ID) {
+      // @ts-ignore - Vercel analytics
+      window.va?.track(eventName, properties)
+    }
+
+    // Google Analytics 4
+    if (process.env.NEXT_PUBLIC_GA_ID && typeof window !== 'undefined') {
+      // @ts-ignore - Google Analytics
+      window.gtag?.('event', eventName, {
+        ...properties,
+        event_category: 'ai_studio',
+        timestamp: new Date().toISOString(),
+      })
+    }
+
+    // Mixpanel tracking
+    if (process.env.NEXT_PUBLIC_MIXPANEL_TOKEN && typeof window !== 'undefined') {
+      // @ts-ignore - Mixpanel
+      window.mixpanel?.track(eventName, {
+        ...properties,
+        app: 'creative-ai-studio',
+        timestamp: Date.now(),
+      })
+    }
   }
 
-  // Custom event tracking for debugging
-  if (process.env.NODE_ENV === 'development') {
-    console.log('📊 Analytics Event:', { eventName, properties, timestamp: new Date().toISOString() })
+  private scheduleBatch() {
+    if (this.batchTimeout) return
+
+    this.batchTimeout = setTimeout(() => {
+      this.flush()
+    }, this.BATCH_TIMEOUT)
   }
 
-  // Send to custom analytics endpoint
-  if (process.env.NEXT_PUBLIC_CUSTOM_ANALYTICS_ENDPOINT) {
+  private flush() {
+    if (this.eventQueue.length === 0) return
+
+    const events = [...this.eventQueue]
+    this.eventQueue = []
+
+    if (this.batchTimeout) {
+      clearTimeout(this.batchTimeout)
+      this.batchTimeout = undefined
+    }
+
+    // Send batch to analytics API
     fetch('/api/analytics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        event: eventName,
-        properties: {
-          ...properties,
-          timestamp: new Date().toISOString(),
-          session_id: getSessionId(),
-          user_id: getUserId(),
-        }
+        events: events.map(e => ({
+          event: e.event,
+          properties: e.properties
+        })),
+        batch: true
       })
-    }).catch(err => console.warn('Analytics endpoint failed:', err))
+    }).catch(err => {
+      console.warn('Analytics batch failed:', err)
+      // Re-queue failed events
+      this.eventQueue.unshift(...events)
+    })
   }
+
+  private trackWebVitals() {
+    if (typeof window === 'undefined') return
+
+    // Track Core Web Vitals
+    import('web-vitals').then(({ getCLS, getFID, getFCP, getLCP, getTTFB }) => {
+      getCLS((metric) => this.trackEvent('web_vital_cls', { value: metric.value }))
+      getFID((metric) => this.trackEvent('web_vital_fid', { value: metric.value }))
+      getFCP((metric) => this.trackEvent('web_vital_fcp', { value: metric.value }))
+      getLCP((metric) => this.trackEvent('web_vital_lcp', { value: metric.value }))
+      getTTFB((metric) => this.trackEvent('web_vital_ttfb', { value: metric.value }))
+    }).catch(() => {
+      // Web vitals not available
+    })
+  }
+}
+
+// Global analytics manager instance
+const analyticsManager = new AnalyticsManager()
+
+// Export track function for backward compatibility
+export const trackEvent = (eventName: string, properties?: Record<string, any>) => {
+  analyticsManager.trackEvent(eventName, properties)
 }
 
 // Session management for analytics

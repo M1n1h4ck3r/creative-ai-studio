@@ -1,15 +1,28 @@
 import crypto from 'crypto'
 
 const algorithm = 'aes-256-gcm'
-const secretKey = process.env.ENCRYPTION_KEY || 'default-encryption-key-32-chars!'
 
-// Ensure the key is 32 bytes
-const key = crypto.scryptSync(secretKey, 'salt', 32)
+// Validate encryption key
+function getEncryptionKey(): Buffer {
+  const secretKey = process.env.ENCRYPTION_KEY
+  
+  if (!secretKey) {
+    throw new Error('ENCRYPTION_KEY environment variable is required')
+  }
+  
+  if (secretKey.length < 32) {
+    throw new Error('ENCRYPTION_KEY must be at least 32 characters long')
+  }
+  
+  // Use secure key derivation
+  return crypto.scryptSync(secretKey, process.env.ENCRYPTION_SALT || 'default-salt-should-be-changed', 32)
+}
 
 export function encryptApiKey(text: string): string {
   try {
+    const key = getEncryptionKey()
     const iv = crypto.randomBytes(16)
-    const cipher = crypto.createCipher(algorithm, key)
+    const cipher = crypto.createCipherGCM(algorithm, key, iv)
     
     let encrypted = cipher.update(text, 'utf8', 'hex')
     encrypted += cipher.final('hex')
@@ -36,7 +49,8 @@ export function decryptApiKey(encryptedText: string): string {
     const authTag = Buffer.from(parts[1], 'hex')
     const encrypted = parts[2]
     
-    const decipher = crypto.createDecipher(algorithm, key)
+    const key = getEncryptionKey()
+    const decipher = crypto.createDecipherGCM(algorithm, key, iv)
     decipher.setAuthTag(authTag)
     
     let decrypted = decipher.update(encrypted, 'hex', 'utf8')
@@ -58,6 +72,41 @@ export function simpleDecrypt(encryptedText: string): string {
   return Buffer.from(encryptedText, 'base64').toString('utf8')
 }
 
-// Use simple encryption in development, proper encryption in production
-export const encrypt = process.env.NODE_ENV === 'production' ? encryptApiKey : simpleEncrypt
-export const decrypt = process.env.NODE_ENV === 'production' ? decryptApiKey : simpleDecrypt
+// Always use secure encryption (removed insecure development fallback)
+export const encrypt = encryptApiKey
+export const decrypt = decryptApiKey
+
+// Secure random token generation
+export function generateSecureToken(length: number = 32): string {
+  return crypto.randomBytes(length).toString('hex')
+}
+
+// Secure password hashing
+export async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.randomBytes(16).toString('hex')
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex')
+  return `${salt}:${hash}`
+}
+
+// Verify password against hash
+export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+  try {
+    const [salt, hash] = hashedPassword.split(':')
+    const testHash = crypto.scryptSync(password, salt, 64).toString('hex')
+    return hash === testHash
+  } catch (error) {
+    console.error('Password verification error:', error)
+    return false
+  }
+}
+
+// Generate CSRF token
+export function generateCSRFToken(): string {
+  return crypto.randomBytes(32).toString('hex')
+}
+
+// Verify CSRF token
+export function verifyCSRFToken(token: string, expected: string): boolean {
+  if (!token || !expected) return false
+  return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected))
+}

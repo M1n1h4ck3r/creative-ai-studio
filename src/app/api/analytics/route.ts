@@ -8,28 +8,62 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function POST(request: NextRequest) {
   try {
-    const { event, properties } = await request.json()
+    const body = await request.json()
+    const isDevelopment = process.env.NODE_ENV === 'development'
     
-    if (!event) {
-      return NextResponse.json({ error: 'Event name is required' }, { status: 400 })
+    let events: Array<{event: string, properties: Record<string, any>}> = []
+    
+    // Support both single event and batch events
+    if (body.events && Array.isArray(body.events)) {
+      // Batch request
+      events = body.events
+    } else if (body.event) {
+      // Single event request
+      events = [{event: body.event, properties: body.properties || {}}]
+    } else {
+      return NextResponse.json({ error: 'Event name or events array is required' }, { status: 400 })
     }
 
-    // Store analytics event in database
-    const { data, error } = await supabase
-      .from('analytics_events')
-      .insert({
-        event_name: event,
-        properties: properties || {},
+    if (events.length === 0) {
+      return NextResponse.json({ error: 'No events to process' }, { status: 400 })
+    }
+
+    // Log events in development
+    if (isDevelopment) {
+      console.log(`📊 Analytics: Processing ${events.length} events`)
+      events.forEach((e, i) => console.log(`Event ${i + 1}:`, e.event, e.properties))
+    }
+
+    let data: any[] = []
+    let insertError: any = null
+
+    // Only store in database in production
+    if (!isDevelopment) {
+      // Prepare batch insert data
+      const insertData = events.map(e => ({
+        event_name: e.event,
+        properties: e.properties || {},
         created_at: new Date().toISOString(),
         user_agent: request.headers.get('user-agent'),
         ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
         referer: request.headers.get('referer'),
-      })
-      .select()
+        session_id: e.properties?.session_id || null,
+        user_id: e.properties?.user_id || null
+      }))
 
-    if (error) {
-      console.error('Analytics storage error:', error)
-      return NextResponse.json({ error: 'Failed to store analytics' }, { status: 500 })
+      // Store analytics events in database
+      const result = await supabase
+        .from('analytics_events')
+        .insert(insertData)
+        .select()
+
+      data = result.data || []
+      insertError = result.error
+
+      if (insertError) {
+        console.error('Analytics storage error:', insertError)
+        // Don't fail the request for analytics storage errors
+      }
     }
 
     // Forward to external analytics services

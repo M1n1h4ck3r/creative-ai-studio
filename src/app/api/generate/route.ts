@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { getProviderManager } from '@/lib/providers/manager'
 import { ProviderType, GenerationOptions } from '@/lib/providers/types'
 import { decrypt } from '@/lib/encryption'
+import { validatePrompt, sanitizeErrorMessage } from '@/lib/security'
 import type { InsertGeneration, UpdateApiKey } from '@/types/supabase'
 
 export async function POST(request: NextRequest) {
@@ -35,9 +36,29 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { prompt, provider, aspectRatio, style, negativePrompt, model, geminiConfig, attachedFiles } = body
 
-    if (!prompt || !provider) {
+    // Validate and sanitize prompt
+    if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json(
-        { success: false, error: 'Prompt and provider are required' },
+        { success: false, error: 'Prompt é obrigatório' },
+        { status: 400 }
+      )
+    }
+
+    const promptValidation = validatePrompt(prompt.trim())
+    if (!promptValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: 'Prompt inválido', details: promptValidation.errors },
+        { status: 400 }
+      )
+    }
+
+    // Validate provider
+    const validProviders = ['gemini', 'openai', 'replicate', 'anthropic', 'huggingface']
+    const sanitizedProvider = provider?.toLowerCase()?.trim()
+    
+    if (!sanitizedProvider || !validProviders.includes(sanitizedProvider)) {
+      return NextResponse.json(
+        { success: false, error: 'Provider inválido' },
         { status: 400 }
       )
     }
@@ -109,15 +130,15 @@ export async function POST(request: NextRequest) {
       apiKey: decryptedKey
     })
 
-    // Prepare generation options
+    // Prepare generation options with sanitized prompt
     const generationOptions: GenerationOptions = {
-      prompt,
+      prompt: promptValidation.sanitized,
       negativePrompt: negativePrompt || undefined,
       aspectRatio: aspectRatio || '1:1',
       style: style || undefined,
       model: model || undefined,
-      geminiConfig: provider === 'gemini' ? geminiConfig : undefined,
-      attachedFiles: provider === 'gemini' ? attachedFiles : undefined
+      geminiConfig: sanitizedProvider === 'gemini' ? geminiConfig : undefined,
+      attachedFiles: sanitizedProvider === 'gemini' ? attachedFiles : undefined
     }
     
     // Debug log para verificar arquivos anexados
@@ -194,23 +215,23 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Generation API error:', error)
     
-    // Return appropriate error message
-    let errorMessage = 'Internal server error'
+    // Use sanitized error message
+    const sanitizedMessage = sanitizeErrorMessage(error)
     let statusCode = 500
 
-    if (error.message.includes('Invalid API key')) {
-      errorMessage = 'Invalid API key for the selected provider'
-      statusCode = 400
-    } else if (error.message.includes('Rate limit')) {
-      errorMessage = 'Rate limit exceeded. Please try again later'
+    // Categorize error types for appropriate status codes
+    if (error.message?.includes('Invalid API key') || error.message?.includes('unauthorized')) {
+      statusCode = 401
+    } else if (error.message?.includes('Rate limit') || error.message?.includes('quota')) {
       statusCode = 429
-    } else if (error.message.includes('Prompt') || error.message.includes('não pôde gerar')) {
-      errorMessage = error.message
+    } else if (error.message?.includes('Prompt') || error.message?.includes('validation') || error.message?.includes('inválido')) {
       statusCode = 400
+    } else if (error.message?.includes('timeout') || error.message?.includes('network')) {
+      statusCode = 503
     }
 
     return NextResponse.json(
-      { success: false, error: errorMessage },
+      { success: false, error: sanitizedMessage },
       { status: statusCode }
     )
   }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase'
-import { rateLimitManager } from '@/lib/rate-limiting'
+import { securityHeaders, getClientIP, CSRFProtection } from '@/lib/security'
 
 // Rate limiting configuration
 const RATE_LIMITED_PATHS = [
@@ -27,16 +27,40 @@ export async function middleware(request: NextRequest) {
   const ip = getClientIP(request)
   const userAgent = request.headers.get('user-agent') || undefined
 
+  // Create response with security headers
+  const response = NextResponse.next()
+  
+  // Add security headers to all responses
+  Object.entries(securityHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value)
+  })
+
   // Skip middleware for excluded paths
   if (EXCLUDED_PATHS.some(path => pathname.startsWith(path))) {
-    return NextResponse.next()
+    return response
   }
 
   // Only apply rate limiting to API routes and specific paths
   const shouldRateLimit = RATE_LIMITED_PATHS.some(path => pathname.startsWith(path))
   
+  // CSRF protection for state-changing operations
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method) && pathname.startsWith('/api/')) {
+    const csrfToken = request.headers.get('x-csrf-token')
+    const sessionId = request.cookies.get('session-id')?.value
+    
+    // Skip CSRF check for auth endpoints (they have their own protection)
+    if (!pathname.startsWith('/api/auth/') && sessionId && csrfToken) {
+      if (!CSRFProtection.verifyToken(sessionId, csrfToken)) {
+        return NextResponse.json(
+          { error: 'Invalid or missing CSRF token' },
+          { status: 403, headers: response.headers }
+        )
+      }
+    }
+  }
+
   if (!shouldRateLimit) {
-    return NextResponse.next()
+    return response
   }
 
   try {
@@ -58,32 +82,46 @@ export async function middleware(request: NextRequest) {
     // Simple rate limiting implementation
     const rateLimitResult = await checkSimpleRateLimit(ip, pathname)
     
-    function checkSimpleRateLimit(ip: string, path: string) {
+    async function checkSimpleRateLimit(ip: string, path: string) {
       // Basic rate limiting - allow all for now
       // In production, implement Redis-based rate limiting
-      return Promise.resolve({ 
+      return { 
         allowed: true, 
-        remainingRequests: 100,
-        resetTime: Date.now() + 60000
-      })
+        remaining: 100,
+        reset_time: Date.now() + 60000,
+        headers: {
+          'X-RateLimit-Limit': '100',
+          'X-RateLimit-Remaining': '99',
+          'X-RateLimit-Reset': Math.floor((Date.now() + 60000) / 1000).toString()
+        }
+      }
     }
 
-    // Add rate limiting headers to response
-    const response = rateLimitResult.allowed 
-      ? NextResponse.next()
-      : NextResponse.json(
-          {
-            error: 'Rate limit exceeded',
-            message: rateLimitResult.reason || 'Too many requests',
-            retry_after: rateLimitResult.retry_after
-          },
-          { 
-            status: rateLimitResult.quota_exceeded ? 429 : 429,
-            headers: rateLimitResult.headers
-          }
-        )
+    // Handle rate limiting response
+    if (!rateLimitResult.allowed) {
+      const rateLimitResponse = NextResponse.json(
+        {
+          error: 'Rate limit exceeded',
+          message: 'Too many requests',
+          retry_after: 60
+        },
+        { status: 429 }
+      )
+      
+      // Add security headers to rate limit response
+      Object.entries(securityHeaders).forEach(([key, value]) => {
+        rateLimitResponse.headers.set(key, value)
+      })
+      
+      // Add rate limit headers
+      Object.entries(rateLimitResult.headers).forEach(([key, value]) => {
+        rateLimitResponse.headers.set(key, value)
+      })
+      
+      return rateLimitResponse
+    }
 
-    // Add rate limit headers to successful responses too
+    // Add rate limit headers to successful responses
     Object.entries(rateLimitResult.headers).forEach(([key, value]) => {
       response.headers.set(key, value)
     })
@@ -95,11 +133,9 @@ export async function middleware(request: NextRequest) {
       response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
     }
 
-    // Track concurrent requests if allowed
+    // Add request tracking headers if allowed
     if (rateLimitResult.allowed) {
-      await rateLimitManager.startRequest(userId, ip, requestId)
-      
-      // Store request info for cleanup after response
+      // Store request info in headers
       response.headers.set('X-Request-ID', requestId)
       response.headers.set('X-User-ID', userId || '')
       response.headers.set('X-Client-IP', ip)
@@ -111,39 +147,19 @@ export async function middleware(request: NextRequest) {
     console.error('Middleware error:', error)
     
     // Fail open - allow request but log error
-    const response = NextResponse.next()
-    response.headers.set('X-Middleware-Error', 'true')
+    const errorResponse = NextResponse.next()
     
-    return response
+    // Add security headers even on error
+    Object.entries(securityHeaders).forEach(([key, value]) => {
+      errorResponse.headers.set(key, value)
+    })
+    
+    errorResponse.headers.set('X-Middleware-Error', 'true')
+    
+    return errorResponse
   }
 }
 
-function getClientIP(request: NextRequest): string {
-  // Try various headers to get the real client IP
-  const xForwardedFor = request.headers.get('x-forwarded-for')
-  const xRealIP = request.headers.get('x-real-ip')
-  const cfConnectingIP = request.headers.get('cf-connecting-ip')
-  const xClientIP = request.headers.get('x-client-ip')
-
-  if (cfConnectingIP) {
-    return cfConnectingIP
-  }
-  
-  if (xRealIP) {
-    return xRealIP
-  }
-  
-  if (xForwardedFor) {
-    return xForwardedFor.split(',')[0].trim()
-  }
-  
-  if (xClientIP) {
-    return xClientIP
-  }
-
-  // Fallback to a default IP if none found
-  return '127.0.0.1'
-}
 
 // Configure which paths the middleware runs on
 export const config = {
