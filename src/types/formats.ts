@@ -202,9 +202,8 @@ export function getAllFormatsByCategory(): Record<FormatCategory, FormatInfo[]> 
   }
 }
 
-// Backward compatibility - but these are now computed lazily
-export const POPULAR_FORMATS = getPopularFormats()
-export const FORMATS_BY_CATEGORY = getAllFormatsByCategory()
+// Removed static exports to prevent module-level computation
+// Use getPopularFormats() and getFormatsByCategory() instead
 
 // Helper functions
 export function getFormatById(id: string): FormatInfo | undefined {
