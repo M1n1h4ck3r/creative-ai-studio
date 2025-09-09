@@ -184,14 +184,27 @@ export const FORMAT_PRESETS: Record<string, FormatInfo> = {
   },
 }
 
-export const POPULAR_FORMATS = Object.values(FORMAT_PRESETS).filter(format => format.isPopular)
-
-export const FORMATS_BY_CATEGORY = {
-  [FormatCategory.SOCIAL_MEDIA]: Object.values(FORMAT_PRESETS).filter(f => f.category === FormatCategory.SOCIAL_MEDIA),
-  [FormatCategory.PRINT]: Object.values(FORMAT_PRESETS).filter(f => f.category === FormatCategory.PRINT),
-  [FormatCategory.WEB]: Object.values(FORMAT_PRESETS).filter(f => f.category === FormatCategory.WEB),
-  [FormatCategory.MOBILE]: Object.values(FORMAT_PRESETS).filter(f => f.category === FormatCategory.MOBILE),
+// Helper functions to get formats (computed on demand, not at module load)
+export function getPopularFormats(): FormatInfo[] {
+  return Object.values(FORMAT_PRESETS).filter(format => format.isPopular)
 }
+
+export function getFormatsByCategory(category: FormatCategory): FormatInfo[] {
+  return Object.values(FORMAT_PRESETS).filter(f => f.category === category)
+}
+
+export function getAllFormatsByCategory(): Record<FormatCategory, FormatInfo[]> {
+  return {
+    [FormatCategory.SOCIAL_MEDIA]: getFormatsByCategory(FormatCategory.SOCIAL_MEDIA),
+    [FormatCategory.PRINT]: getFormatsByCategory(FormatCategory.PRINT),
+    [FormatCategory.WEB]: getFormatsByCategory(FormatCategory.WEB),
+    [FormatCategory.MOBILE]: getFormatsByCategory(FormatCategory.MOBILE),
+  }
+}
+
+// Backward compatibility - but these are now computed lazily
+export const POPULAR_FORMATS = getPopularFormats()
+export const FORMATS_BY_CATEGORY = getAllFormatsByCategory()
 
 // Helper functions
 export function getFormatById(id: string): FormatInfo | undefined {
@@ -203,6 +216,16 @@ export function getFormatByAspectRatio(aspectRatio: string): FormatInfo[] {
 }
 
 export function getDimensionsFromAspectRatio(aspectRatio: string, maxWidth: number = 1920): FormatDimensions {
+  // Prevent infinite recursion and invalid values
+  if (!aspectRatio || typeof aspectRatio !== 'string' || maxWidth <= 0) {
+    return {
+      width: 1024,
+      height: 1024,
+      aspectRatio: '1:1',
+      megapixels: 1.05
+    }
+  }
+
   const ratios: Record<string, { width: number; height: number }> = {
     '1:1': { width: 1, height: 1 },
     '16:9': { width: 16, height: 9 },
@@ -216,15 +239,29 @@ export function getDimensionsFromAspectRatio(aspectRatio: string, maxWidth: numb
 
   const ratio = ratios[aspectRatio] || ratios['1:1']
   
+  // Ensure ratio values are valid
+  if (!ratio || ratio.width <= 0 || ratio.height <= 0) {
+    return {
+      width: 1024,
+      height: 1024,
+      aspectRatio: '1:1',
+      megapixels: 1.05
+    }
+  }
+  
   // Calculate dimensions maintaining aspect ratio
-  let width = maxWidth
-  let height = Math.round((maxWidth * ratio.height) / ratio.width)
+  let width = Math.min(maxWidth, 1920) // Cap maximum width
+  let height = Math.round((width * ratio.height) / ratio.width)
   
   // If height exceeds reasonable limit, scale down
   if (height > maxWidth) {
-    height = maxWidth
-    width = Math.round((maxWidth * ratio.width) / ratio.height)
+    height = Math.min(maxWidth, 1920) // Cap maximum height
+    width = Math.round((height * ratio.width) / ratio.height)
   }
+
+  // Ensure minimum dimensions
+  width = Math.max(256, width)
+  height = Math.max(256, height)
 
   return {
     width,

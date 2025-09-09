@@ -4,8 +4,8 @@ import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FORMAT_PRESETS, 
-  POPULAR_FORMATS, 
-  FORMATS_BY_CATEGORY,
+  getPopularFormats,
+  getFormatsByCategory,
   FormatInfo, 
   FormatCategory,
   FormatSelection 
@@ -46,6 +46,17 @@ export default function FormatSelector({
 }: FormatSelectorProps) {
   const [activeTab, setActiveTab] = useState<'popular' | FormatCategory>('popular')
   const [batchMode, setBatchMode] = useState(false)
+  
+  // Memoize the formats to avoid recalculation on each render
+  const popularFormats = React.useMemo(() => getPopularFormats(), [])
+  const formatsByCategory = React.useMemo(() => {
+    return {
+      [FormatCategory.SOCIAL_MEDIA]: getFormatsByCategory(FormatCategory.SOCIAL_MEDIA),
+      [FormatCategory.PRINT]: getFormatsByCategory(FormatCategory.PRINT),
+      [FormatCategory.WEB]: getFormatsByCategory(FormatCategory.WEB),
+      [FormatCategory.MOBILE]: getFormatsByCategory(FormatCategory.MOBILE),
+    }
+  }, [])
 
   const handleFormatToggle = (formatId: string) => {
     let newSelection: string[]
@@ -108,8 +119,8 @@ export default function FormatSelector({
             <motion.div
               className="bg-white dark:bg-gray-700 rounded border-2 border-dashed border-gray-400 dark:border-gray-500 flex items-center justify-center text-xs text-gray-500"
               style={{
-                width: `${Math.max(60, Math.min(80, (format.dimensions.width / format.dimensions.height) * 50))}px`,
-                height: `${Math.max(30, Math.min(80, (format.dimensions.height / format.dimensions.width) * 50))}px`,
+                width: `${Math.max(40, Math.min(80, (format.dimensions.width / format.dimensions.height) * 40))}px`,
+                height: `${Math.max(30, Math.min(60, (format.dimensions.height / format.dimensions.width) * 40))}px`,
               }}
             >
               {format.aspectRatio}
@@ -294,7 +305,7 @@ export default function FormatSelector({
 
         <TabsContent value="popular" className="mt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {POPULAR_FORMATS.map((format) => (
+            {popularFormats.map((format) => (
               <FormatCard
                 key={format.id}
                 format={format}
@@ -307,7 +318,7 @@ export default function FormatSelector({
         {Object.values(FormatCategory).map((category) => (
           <TabsContent key={category} value={category} className="mt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {FORMATS_BY_CATEGORY[category]?.map((format) => (
+              {formatsByCategory[category]?.map((format) => (
                 <FormatCard
                   key={format.id}
                   format={format}
