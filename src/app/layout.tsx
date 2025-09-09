@@ -7,6 +7,9 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/react'
 import PageTracker from '@/components/Analytics/PageTracker'
+import { AntdRegistry } from '@ant-design/nextjs-registry'
+import { ConfigProvider, theme as antdTheme } from 'antd'
+import ptBR from 'antd/locale/pt_BR'
 // import { ErrorBoundary } from '@/components/ErrorBoundary'
 // import { MonitoringProvider } from '@/components/MonitoringProvider'
 
@@ -25,16 +28,46 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
-        <ThemeProvider>
-          <AuthProvider>
-            <ApiKeyProvider>
-              <PageTracker />
-              {children}
-              <Toaster position="top-right" richColors />
-              <Analytics />
-            </ApiKeyProvider>
-          </AuthProvider>
-        </ThemeProvider>
+        <AntdRegistry>
+          <ConfigProvider
+            locale={ptBR}
+            theme={{
+              algorithm: [antdTheme.defaultAlgorithm],
+              token: {
+                colorPrimary: '#3b82f6',
+                colorSuccess: '#10b981',
+                colorWarning: '#f59e0b',
+                colorError: '#ef4444',
+                borderRadius: 8,
+                fontFamily: inter.style.fontFamily,
+              },
+              components: {
+                Button: {
+                  borderRadius: 8,
+                  controlHeight: 40,
+                },
+                Input: {
+                  borderRadius: 8,
+                  controlHeight: 40,
+                },
+                Card: {
+                  borderRadius: 12,
+                },
+              },
+            }}
+          >
+            <ThemeProvider>
+              <AuthProvider>
+                <ApiKeyProvider>
+                  <PageTracker />
+                  {children}
+                  <Toaster position="top-right" richColors />
+                  <Analytics />
+                </ApiKeyProvider>
+              </AuthProvider>
+            </ThemeProvider>
+          </ConfigProvider>
+        </AntdRegistry>
       </body>
     </html>
   );
