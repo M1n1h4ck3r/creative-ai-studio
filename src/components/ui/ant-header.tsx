@@ -148,8 +148,8 @@ export function AntHeader({
   )
 
   return (
-    <Header 
-      style={{ 
+    <Header
+      style={{
         position: 'sticky',
         top: 0,
         zIndex: 1000,
@@ -158,9 +158,9 @@ export function AntHeader({
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 24px',
-        background: 'rgba(255, 255, 255, 0.95)',
+        background: theme === 'dark' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.95)',
         backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(5, 5, 5, 0.06)',
+        borderBottom: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(5, 5, 5, 0.06)',
         boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02)',
       }}
     >

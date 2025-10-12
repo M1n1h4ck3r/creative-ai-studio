@@ -15,9 +15,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <Layout style={{ minHeight: '100vh', background: '#f5f7fa' }}>
+    <Layout style={{ minHeight: '100vh', background: 'transparent' }}>
       <AntHeader title="Creative AI Studio" subtitle="v2.0 - Powered by Ant Design" />
-      <Content>
+      <Content style={{ background: 'transparent' }}>
         <AntDashboard onNavigate={handleNavigate} />
       </Content>
     </Layout>

@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+// Lazy initialization to avoid build-time errors
+let supabaseInstance: ReturnType<typeof createClient> | null = null
 
-const supabase = createClient(supabaseUrl, supabaseKey)
+function getSupabase() {
+  if (!supabaseInstance) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase credentials not configured')
+    }
+
+    supabaseInstance = createClient(supabaseUrl, supabaseKey)
+  }
+  return supabaseInstance
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,6 +64,7 @@ export async function POST(request: NextRequest) {
       }))
 
       // Store analytics events in database
+      const supabase = getSupabase()
       const result = await supabase
         .from('analytics_events')
         .insert(insertData)
@@ -119,6 +132,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('end_date') || new Date().toISOString()
     const eventType = searchParams.get('event_type')
 
+    const supabase = getSupabase()
     let query = supabase
       .from('analytics_events')
       .select('*')
