@@ -13,13 +13,33 @@ export class AuthService {
 
   // Sign up with email and password - now uses API endpoint
   async signUp(email: string, password: string, fullName?: string) {
+    // Validate inputs
+    if (!email || !password) {
+      throw new Error('Email and password are required')
+    }
+
+    // Ensure we're in browser context
+    if (typeof window === 'undefined') {
+      throw new Error('Sign up must be called from the browser')
+    }
+
+    // Build absolute URL
+    const origin = window.location?.origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const url = `${origin}/api/auth/signup`
+
+    console.log('Signup URL:', url)
+
     // Use our API endpoint which handles admin user creation properly
-    const response = await fetch('/api/auth/signup', {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, password, fullName }),
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        fullName: fullName?.trim() || ''
+      }),
     })
 
     const result = await response.json()
@@ -33,13 +53,32 @@ export class AuthService {
 
   // Sign in with email and password - now uses API endpoint
   async signIn(email: string, password: string) {
+    // Validate inputs
+    if (!email || !password) {
+      throw new Error('Email and password are required')
+    }
+
+    // Ensure we're in browser context
+    if (typeof window === 'undefined') {
+      throw new Error('Sign in must be called from the browser')
+    }
+
+    // Build absolute URL
+    const origin = window.location?.origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const url = `${origin}/api/auth/signin`
+
+    console.log('Signin URL:', url)
+
     // Use our API endpoint for consistency
-    const response = await fetch('/api/auth/signin', {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({
+        email: email.trim(),
+        password
+      }),
     })
 
     const result = await response.json()
