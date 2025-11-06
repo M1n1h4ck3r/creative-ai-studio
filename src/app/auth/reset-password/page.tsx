@@ -29,15 +29,23 @@ function ResetPasswordContent() {
     const checkSession = async () => {
       try {
         const session = await authService.getSession()
+        console.log('Reset password session check:', session)
+
         if (session) {
           setIsValidToken(true)
         } else {
+          console.warn('No session found for password reset')
           toast.error('Link de recuperação inválido ou expirado')
-          router.push('/auth/forgot-password')
+          setTimeout(() => {
+            router.push('/auth/forgot-password')
+          }, 2000)
         }
       } catch (error) {
+        console.error('Session check error:', error)
         toast.error('Link de recuperação inválido ou expirado')
-        router.push('/auth/forgot-password')
+        setTimeout(() => {
+          router.push('/auth/forgot-password')
+        }, 2000)
       } finally {
         setChecking(false)
       }
@@ -48,7 +56,7 @@ function ResetPasswordContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (password !== confirmPassword) {
       toast.error('As senhas não coincidem')
       return
@@ -62,16 +70,31 @@ function ResetPasswordContent() {
     setIsLoading(true)
 
     try {
+      console.log('Attempting to update password...')
       await authService.updatePassword(password)
+      console.log('Password updated successfully')
       setIsSuccess(true)
       toast.success('Senha alterada com sucesso!')
-      
+
       // Redirect to dashboard after 2 seconds
       setTimeout(() => {
         router.push('/dashboard')
       }, 2000)
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao alterar senha')
+      console.error('Password update error:', error)
+
+      // More specific error messages
+      const errorMessage = error.message || 'Erro ao alterar senha'
+      if (errorMessage.includes('session')) {
+        toast.error('Sua sessão expirou. Por favor, solicite um novo link de recuperação.')
+        setTimeout(() => {
+          router.push('/auth/forgot-password')
+        }, 2000)
+      } else if (errorMessage.includes('weak password')) {
+        toast.error('Senha muito fraca. Use uma senha mais forte.')
+      } else {
+        toast.error(errorMessage)
+      }
     } finally {
       setIsLoading(false)
     }

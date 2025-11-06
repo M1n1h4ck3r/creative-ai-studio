@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirme sua Identidade - Creative AI Studio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f6f6f6;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        .header h1 {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0;
+        }
+        .header p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .security-badge {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        .content h2 {
+            color: #1a1a1a;
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        .content p {
+            color: #666666;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        .action-info {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffe8a1 100%);
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
+        }
+        .action-info h3 {
+            color: #856404;
+            font-size: 18px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        .action-info p {
+            margin: 8px 0;
+            color: #856404;
+            font-size: 15px;
+        }
+        .action-info strong {
+            color: #664d03;
+        }
+        .device-info {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
+        }
+        .device-row {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        .device-icon {
+            width: 35px;
+            color: #667eea;
+            font-size: 18px;
+        }
+        .device-label {
+            color: #666666;
+            width: 100px;
+            font-weight: 600;
+        }
+        .device-value {
+            color: #1a1a1a;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .button-container {
+            text-align: center;
+            margin: 35px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 16px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        .expiry-time {
+            background-color: #e7f3ff;
+            border: 1px solid #2196F3;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .expiry-time strong {
+            color: #1976D2;
+            font-size: 15px;
+        }
+        .info-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 4px;
+        }
+        .info-box p {
+            margin: 0;
+            font-size: 14px;
+            color: #555555;
+        }
+        .info-box strong {
+            color: #333333;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .security-alert {
+            background-color: #f8d7da;
+            border: 2px solid #dc3545;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
+        }
+        .security-alert h3 {
+            color: #721c24;
+            font-size: 18px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        .security-alert p {
+            margin: 8px 0;
+            color: #721c24;
+            font-size: 14px;
+        }
+        .security-alert ul {
+            margin: 10px 0 0 20px;
+            padding: 0;
+        }
+        .security-alert li {
+            color: #721c24;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+        .divider {
+            height: 1px;
+            background-color: #e9ecef;
+            margin: 30px 0;
+        }
+        .reasons-box {
+            background-color: #e7f3ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
+        }
+        .reasons-box h3 {
+            color: #1976D2;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        .reasons-box ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .reasons-box li {
+            color: #555555;
+            font-size: 14px;
+            margin: 8px 0;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e9ecef;
+        }
+        .footer p {
+            color: #6c757d;
+            font-size: 14px;
+            margin: 8px 0;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon"></div>
+            </div>
+            <h1>Creative AI Studio</h1>
+            <p>Plataforma de Criação com Inteligência Artificial</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <div class="security-badge">🔐 SEGURANÇA</div>
+
+            <h2>Confirmação de Segurança Necessária</h2>
+
+            <p>Olá!</p>
+
+            <p>Detectamos uma tentativa de realizar uma <strong>ação sensível</strong> na sua conta do Creative AI Studio. Por segurança, precisamos confirmar que é realmente você.</p>
+
+            <div class="action-info">
+                <h3>⚡ Ação Solicitada</h3>
+                <p><strong>{{ .ActionType }}</strong></p>
+                <p style="font-size: 13px; margin-top: 12px;">Esta ação requer reautenticação por motivos de segurança.</p>
+            </div>
+
+            <div class="reasons-box">
+                <h3>🛡️ Por que você está recebendo este email?</h3>
+                <ul>
+                    <li>Você está tentando alterar configurações críticas da conta</li>
+                    <li>A ação pode afetar a segurança dos seus dados</li>
+                    <li>Estamos protegendo sua conta contra acessos não autorizados</li>
+                    <li>É uma medida de segurança padrão da plataforma</li>
+                </ul>
+            </div>
+
+            <p>Para continuar, clique no botão abaixo para confirmar sua identidade:</p>
+
+            <div class="button-container">
+                <a href="{{ .ConfirmationURL }}" class="button">🔓 Confirmar Minha Identidade</a>
+            </div>
+
+            <div class="expiry-time">
+                <strong>⏰ Este link expira em 10 minutos</strong>
+            </div>
+
+            <div class="device-info">
+                <p style="font-weight: 600; margin-bottom: 12px; color: #1a1a1a;">📱 Informações da Solicitação:</p>
+                <div class="device-row">
+                    <span class="device-icon">🌍</span>
+                    <span class="device-label">Navegador:</span>
+                    <span class="device-value">{{ .Browser }}</span>
+                </div>
+                <div class="device-row">
+                    <span class="device-icon">💻</span>
+                    <span class="device-label">Sistema:</span>
+                    <span class="device-value">{{ .OS }}</span>
+                </div>
+                <div class="device-row">
+                    <span class="device-icon">📍</span>
+                    <span class="device-label">Localização:</span>
+                    <span class="device-value">{{ .Location }}</span>
+                </div>
+                <div class="device-row">
+                    <span class="device-icon">🕐</span>
+                    <span class="device-label">Horário:</span>
+                    <span class="device-value">{{ .Timestamp }}</span>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <strong>📋 Link alternativo (copie e cole no navegador):</strong>
+                <p style="word-break: break-all; color: #667eea;">{{ .ConfirmationURL }}</p>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="security-alert">
+                <h3>⚠️ Não reconhece esta ação?</h3>
+                <p><strong>Se você não tentou realizar esta ação, NÃO clique no link!</strong></p>
+                <p style="margin-top: 12px;">Tome as seguintes medidas imediatamente:</p>
+                <ul>
+                    <li><strong>Ignore este email</strong> - o link expirará automaticamente</li>
+                    <li><strong>Altere sua senha</strong> imediatamente através do site</li>
+                    <li><strong>Revise as sessões ativas</strong> na sua conta</li>
+                    <li><strong>Entre em contato com o suporte</strong> para investigar</li>
+                    <li><strong>Ative a autenticação em duas etapas</strong> se disponível</li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #999999; margin-top: 30px;">
+                <strong>💡 Dica de Segurança:</strong><br>
+                Sempre verifique se as solicitações de reautenticação correspondem a ações que você realmente iniciou. Em caso de dúvida, entre em contato com nosso suporte.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>Creative AI Studio</strong></p>
+            <p>A plataforma definitiva para criação de conteúdo com IA</p>
+            <div style="margin: 20px 0;">
+                <a href="mailto:suporte@creativeaistudio.com">Suporte Urgente</a> •
+                <a href="#">Central de Segurança</a> •
+                <a href="#">Política de Privacidade</a>
+            </div>
+            <p style="font-size: 12px; color: #999999;">
+                © 2025 Creative AI Studio. Todos os direitos reservados.
+            </p>
+            <p style="font-size: 12px; color: #999999;">
+                Este é um email automático de segurança, por favor não responda.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

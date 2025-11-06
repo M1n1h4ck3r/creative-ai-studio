@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmar Mudança de Email - Creative AI Studio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f6f6f6;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        .header h1 {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0;
+        }
+        .header p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .content h2 {
+            color: #1a1a1a;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        .content p {
+            color: #666666;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        .email-change-box {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
+        }
+        .email-row {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .email-label {
+            font-size: 14px;
+            color: #666666;
+            width: 80px;
+            font-weight: 600;
+        }
+        .email-value {
+            font-size: 15px;
+            color: #1a1a1a;
+            font-family: monospace;
+            background-color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            flex: 1;
+        }
+        .arrow-icon {
+            text-align: center;
+            color: #667eea;
+            font-size: 20px;
+            margin: 8px 0;
+        }
+        .button-container {
+            text-align: center;
+            margin: 35px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 16px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        .info-box {
+            background-color: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 4px;
+        }
+        .info-box p {
+            margin: 0;
+            font-size: 14px;
+            color: #555555;
+        }
+        .info-box strong {
+            color: #1976D2;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .security-notice {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .security-notice p {
+            margin: 0;
+            color: #856404;
+            font-size: 14px;
+        }
+        .security-tips {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
+        }
+        .security-tips h3 {
+            color: #1a1a1a;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        .security-tips ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .security-tips li {
+            color: #666666;
+            font-size: 14px;
+            margin: 8px 0;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e9ecef;
+        }
+        .footer p {
+            color: #6c757d;
+            font-size: 14px;
+            margin: 8px 0;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        .divider {
+            height: 1px;
+            background-color: #e9ecef;
+            margin: 30px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon"></div>
+            </div>
+            <h1>Creative AI Studio</h1>
+            <p>Plataforma de Criação com Inteligência Artificial</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <h2>📧 Confirme a Mudança de Email</h2>
+
+            <p>Olá!</p>
+
+            <p>Recebemos uma solicitação para alterar o endereço de email da sua conta no <strong>Creative AI Studio</strong>.</p>
+
+            <div class="email-change-box">
+                <div class="email-row">
+                    <span class="email-label">De:</span>
+                    <span class="email-value">{{ .OldEmail }}</span>
+                </div>
+                <div class="arrow-icon">↓</div>
+                <div class="email-row">
+                    <span class="email-label">Para:</span>
+                    <span class="email-value">{{ .NewEmail }}</span>
+                </div>
+            </div>
+
+            <p>Para confirmar esta alteração e ativar seu novo email, clique no botão abaixo:</p>
+
+            <div class="button-container">
+                <a href="{{ .ConfirmationURL }}" class="button">Confirmar Novo Email</a>
+            </div>
+
+            <div class="info-box">
+                <strong>📋 Ou copie e cole este link no seu navegador:</strong>
+                <p style="word-break: break-all; color: #2196F3;">{{ .ConfirmationURL }}</p>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="security-notice">
+                <p><strong>⚠️ Não solicitou esta mudança?</strong></p>
+                <p style="margin-top: 8px;">Se você não solicitou a alteração do email, <strong>ignore este email</strong> e entre em contato com nosso suporte imediatamente. Seu email atual permanecerá ativo.</p>
+            </div>
+
+            <div class="security-tips">
+                <h3>🔒 Dicas de Segurança:</h3>
+                <ul>
+                    <li>Nunca compartilhe links de confirmação com outras pessoas</li>
+                    <li>Verifique se o email veio de um domínio oficial</li>
+                    <li>Este link expira em 24 horas por segurança</li>
+                    <li>Após a confirmação, você usará o novo email para fazer login</li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #999999; margin-top: 30px;">
+                <strong>O que acontece depois?</strong><br>
+                Após confirmar, seu novo email será ativado imediatamente e você receberá um email de confirmação no seu novo endereço.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>Creative AI Studio</strong></p>
+            <p>A plataforma definitiva para criação de conteúdo com IA</p>
+            <div style="margin: 20px 0;">
+                <a href="mailto:suporte@creativeaistudio.com">Suporte</a> •
+                <a href="#">Termos de Uso</a> •
+                <a href="#">Política de Privacidade</a>
+            </div>
+            <p style="font-size: 12px; color: #999999;">
+                © 2025 Creative AI Studio. Todos os direitos reservados.
+            </p>
+            <p style="font-size: 12px; color: #999999;">
+                Este é um email automático, por favor não responda.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

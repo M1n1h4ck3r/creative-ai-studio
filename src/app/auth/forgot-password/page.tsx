@@ -20,6 +20,14 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      toast.error('Por favor, insira um email válido')
+      return
+    }
+
     setIsLoading(true)
 
     try {
@@ -27,7 +35,21 @@ export default function ForgotPasswordPage() {
       setIsSuccess(true)
       toast.success('Email de recuperação enviado! Verifique sua caixa de entrada.')
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao enviar email de recuperação')
+      console.error('Reset password error:', error)
+
+      // More specific error messages
+      const errorMessage = error.message || 'Erro ao enviar email de recuperação'
+      if (errorMessage.includes('Invalid email')) {
+        toast.error('Email inválido. Por favor, verifique o email digitado.')
+      } else if (errorMessage.includes('User not found')) {
+        // For security, we still show success message even if user doesn't exist
+        setIsSuccess(true)
+        toast.success('Se o email estiver cadastrado, você receberá um link de recuperação.')
+      } else if (errorMessage.includes('rate limit')) {
+        toast.error('Muitas tentativas. Por favor, aguarde alguns minutos antes de tentar novamente.')
+      } else {
+        toast.error(errorMessage)
+      }
     } finally {
       setIsLoading(false)
     }

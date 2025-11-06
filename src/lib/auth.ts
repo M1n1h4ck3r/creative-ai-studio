@@ -144,34 +144,40 @@ export class AuthService {
 
   // Reset password
   async resetPassword(email: string) {
+    // Validate input
+    if (!email) {
+      throw new Error('Email is required')
+    }
+
     // Ensure we're in browser context
     if (typeof window === 'undefined') {
       throw new Error('Reset password must be called from the browser')
     }
 
-    // Get the origin safely - use NEXT_PUBLIC_APP_URL as fallback
+    // Build absolute URL
     const origin = window.location?.origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const url = `${origin}/api/auth/reset-password`
 
-    // Validate the origin is a valid URL
-    if (!origin || origin === 'undefined') {
-      throw new Error('Unable to determine application URL. Please check your environment configuration.')
-    }
+    console.log('Reset password URL:', url)
 
-    const redirectUrl = `${origin}/auth/reset-password`
-
-    console.log('Reset password - sending email with redirect:', redirectUrl)
-
-    const supabase = this.getSupabase()
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: redirectUrl,
+    // Use API endpoint to avoid client-side Supabase SDK issues
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: email.trim(),
+      }),
     })
 
-    if (error) {
-      console.error('Reset password error:', error)
-      throw new Error(error.message || 'Erro ao enviar email de recuperação')
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Erro ao enviar email de recuperação')
     }
 
-    return data
+    return result
   }
 
   // Update password
