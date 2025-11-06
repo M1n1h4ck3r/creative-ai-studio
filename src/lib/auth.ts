@@ -7,7 +7,9 @@ export interface AuthState {
 }
 
 export class AuthService {
-  private supabase = createClient()
+  private getSupabase() {
+    return createClient()
+  }
 
   // Sign up with email and password - now uses API endpoint
   async signUp(email: string, password: string, fullName?: string) {
@@ -51,10 +53,26 @@ export class AuthService {
 
   // Sign in with Google OAuth
   async signInWithGoogle(redirectTo?: string) {
-    const { data, error } = await this.supabase.auth.signInWithOAuth({
+    // Ensure we're in browser context
+    if (typeof window === 'undefined') {
+      throw new Error('Google sign-in must be called from the browser')
+    }
+
+    // Get the origin safely
+    const origin = window.location?.origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
+    // Validate the origin
+    if (!origin || origin === 'undefined') {
+      throw new Error('Unable to determine application URL for OAuth redirect')
+    }
+
+    const callbackUrl = redirectTo || `${origin}/auth/callback`
+
+    const supabase = this.getSupabase()
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: redirectTo || `${window.location.origin}/auth/callback`,
+        redirectTo: callbackUrl,
       },
     })
 
@@ -64,36 +82,63 @@ export class AuthService {
 
   // Sign out
   async signOut() {
-    const { error } = await this.supabase.auth.signOut()
+    const supabase = this.getSupabase()
+    const { error } = await supabase.auth.signOut()
     if (error) throw error
   }
 
   // Get current user
   async getCurrentUser() {
-    const { data: { user }, error } = await this.supabase.auth.getUser()
+    const supabase = this.getSupabase()
+    const { data: { user }, error } = await supabase.auth.getUser()
     if (error) throw error
     return user
   }
 
   // Get current session
   async getSession() {
-    const { data: { session }, error } = await this.supabase.auth.getSession()
+    const supabase = this.getSupabase()
+    const { data: { session }, error } = await supabase.auth.getSession()
     if (error) throw error
     return session
   }
 
   // Reset password
   async resetPassword(email: string) {
-    const { error } = await this.supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/reset-password`,
+    // Ensure we're in browser context
+    if (typeof window === 'undefined') {
+      throw new Error('Reset password must be called from the browser')
+    }
+
+    // Get the origin safely - use NEXT_PUBLIC_APP_URL as fallback
+    const origin = window.location?.origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
+    // Validate the origin is a valid URL
+    if (!origin || origin === 'undefined') {
+      throw new Error('Unable to determine application URL. Please check your environment configuration.')
+    }
+
+    const redirectUrl = `${origin}/auth/reset-password`
+
+    console.log('Reset password - sending email with redirect:', redirectUrl)
+
+    const supabase = this.getSupabase()
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl,
     })
 
-    if (error) throw error
+    if (error) {
+      console.error('Reset password error:', error)
+      throw new Error(error.message || 'Erro ao enviar email de recuperação')
+    }
+
+    return data
   }
 
   // Update password
   async updatePassword(password: string) {
-    const { error } = await this.supabase.auth.updateUser({
+    const supabase = this.getSupabase()
+    const { error } = await supabase.auth.updateUser({
       password,
     })
 
@@ -102,7 +147,8 @@ export class AuthService {
 
   // Listen to auth state changes
   onAuthStateChange(callback: (event: string, session: any) => void) {
-    return this.supabase.auth.onAuthStateChange(callback)
+    const supabase = this.getSupabase()
+    return supabase.auth.onAuthStateChange(callback)
   }
 }
 
