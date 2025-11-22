@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 
 // Simplified security headers (compatible with Edge Runtime)
 const securityHeaders = {
@@ -27,27 +28,35 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Create response with security headers
   const response = NextResponse.next()
 
-  // Add security headers to all responses
+  // Add security headers
   Object.entries(securityHeaders).forEach(([key, value]) => {
     response.headers.set(key, value)
   })
 
-  // Add CORS headers for API routes
-  if (pathname.startsWith('/api/')) {
-    response.headers.set('Access-Control-Allow-Origin', '*')
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  // Create Supabase client
+  const supabase = createMiddlewareClient({ req: request, res: response })
+
+  // Refresh session if expired - required for Server Components
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  // Protected routes
+  const protectedPaths = ['/dashboard', '/generator', '/editor', '/collections', '/settings']
+  const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path))
+
+  // Redirect to login if accessing protected route without session
+  if (isProtectedPath && !session) {
+    const redirectUrl = new URL('/auth', request.url)
+    redirectUrl.searchParams.set('redirectTo', pathname)
+    return NextResponse.redirect(redirectUrl)
   }
 
-  // Add request ID for tracking (using crypto.randomUUID() which is available in Edge Runtime)
-  try {
-    const requestId = crypto.randomUUID()
-    response.headers.set('X-Request-ID', requestId)
-  } catch (error) {
-    // crypto.randomUUID not available, skip
+  // Redirect to dashboard if accessing auth page with session
+  if (pathname === '/auth' && session) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   return response
