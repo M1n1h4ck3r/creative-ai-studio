@@ -24,8 +24,8 @@ export class AuthService {
     }
 
     // Build absolute URL
-    const origin = window.location?.origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const url = `${origin}/api/auth/signup`
+    // Use relative URL - browser handles the origin
+    const url = '/api/auth/signup'
 
     console.log('Signup URL:', url)
 
@@ -64,8 +64,8 @@ export class AuthService {
     }
 
     // Build absolute URL
-    const origin = window.location?.origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const url = `${origin}/api/auth/signin`
+    // Use relative URL
+    const url = '/api/auth/signin'
 
     console.log('Signin URL:', url)
 
@@ -155,8 +155,8 @@ export class AuthService {
     }
 
     // Build absolute URL
-    const origin = window.location?.origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const url = `${origin}/api/auth/reset-password`
+    // Use relative URL
+    const url = '/api/auth/reset-password'
 
     console.log('Reset password URL:', url)
 
