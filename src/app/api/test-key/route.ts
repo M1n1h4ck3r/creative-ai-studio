@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
       case 'gemini':
         try {
           const genAI = new GoogleGenerativeAI(key)
-          const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-001' })
-          
+          const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+
           // Test with a simple prompt
           const result = await model.generateContent('Hello')
           isValid = !!result.response
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       case 'openai':
         try {
           const openai = new OpenAI({ apiKey: key })
-          
+
           // Test by listing models
           const models = await openai.models.list()
           isValid = !!models.data
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
               'Content-Type': 'application/json',
             },
           })
-          
+
           if (response.ok) {
             isValid = true
           } else {
