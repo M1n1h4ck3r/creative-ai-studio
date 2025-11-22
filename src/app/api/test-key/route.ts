@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       case 'gemini':
         try {
           const genAI = new GoogleGenerativeAI(key)
-          const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+          const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-001' })
           
           // Test with a simple prompt
           const result = await model.generateContent('Hello')

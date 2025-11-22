@@ -1,11 +1,11 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { 
-  AIProvider, 
-  GenerationOptions, 
-  GenerationResult, 
-  CostEstimate, 
+import {
+  AIProvider,
+  GenerationOptions,
+  GenerationResult,
+  CostEstimate,
   ProviderInfo,
-  ProviderCapabilities 
+  ProviderCapabilities
 } from './types'
 import { FORMAT_PRESETS, getDimensionsFromAspectRatio } from '@/types/formats'
 
@@ -20,12 +20,12 @@ export class GeminiProvider extends AIProvider {
   async generateImage(options: GenerationOptions): Promise<GenerationResult> {
     try {
       this.validateOptions(options)
-      
+
       const startTime = Date.now()
-      
+
       // Prepare generation config with advanced controls
       const generationConfig: any = {}
-      
+
       if (options.geminiConfig) {
         const config = options.geminiConfig
         if (config.temperature !== undefined) generationConfig.temperature = config.temperature
@@ -39,27 +39,27 @@ export class GeminiProvider extends AIProvider {
         if (config.seed !== undefined) generationConfig.seed = config.seed
         if (config.responseMimeType) generationConfig.responseMimeType = config.responseMimeType
       }
-      
+
       // Try different models in case of issues
       let modelName = options.model || 'gemini-2.5-flash-image-preview'
-      
+
       // Fallback models if the primary doesn't work
       const fallbackModels = [
         'gemini-2.5-flash-image-preview',
-        'imagen-3.0-generate-001',  
+        'imagen-3.0-generate-001',
         'imagen-3.0-fast-generate-001',
-        'gemini-1.5-flash'
+        'gemini-1.5-flash-001'
       ]
-      
+
       let model
       let modelUsed = modelName
-      
+
       try {
         model = this.genAI.getGenerativeModel({ model: modelName })
         console.log('Gemini Debug - Using model:', modelName)
       } catch (modelError) {
         console.warn('Model creation failed for', modelName, '- trying fallbacks')
-        
+
         for (const fallback of fallbackModels) {
           try {
             model = this.genAI.getGenerativeModel({ model: fallback })
@@ -70,7 +70,7 @@ export class GeminiProvider extends AIProvider {
             console.warn('Fallback model failed:', fallback, fallbackError)
           }
         }
-        
+
         if (!model) {
           throw new Error('All Gemini models failed to initialize')
         }
@@ -79,7 +79,7 @@ export class GeminiProvider extends AIProvider {
       // Process format information
       let dimensions = { width: 1024, height: 1024 } // Default square
       let aspectRatioInfo = ''
-      
+
       if (options.format && FORMAT_PRESETS[options.format]) {
         const format = FORMAT_PRESETS[options.format]
         dimensions = {
@@ -105,38 +105,38 @@ export class GeminiProvider extends AIProvider {
 
       // Build the enhanced prompt with format, style and negative prompts
       let enhancedPrompt = options.prompt
-      
+
       // Add format context to the prompt
       if (aspectRatioInfo) {
         enhancedPrompt = `${aspectRatioInfo}${enhancedPrompt}`
       }
-      
+
       // If there are attached files, modify the prompt to be clear about image generation
       if (options.attachedFiles && options.attachedFiles.length > 0) {
         enhancedPrompt = `Generate a new image based on the following prompt: "${enhancedPrompt}". Use the attached image(s) as visual reference or inspiration. Create a completely new image following the description.`
       }
-      
+
       if (options.style) {
         enhancedPrompt += `, ${options.style} style`
       }
-      
+
       if (options.negativePrompt) {
         enhancedPrompt += `. Avoid: ${options.negativePrompt}`
       }
 
       console.log('Gemini Debug - Enhanced prompt:', enhancedPrompt)
       console.log('Gemini Debug - Model being used:', options.model || 'gemini-2.5-flash-image-preview')
-      
+
       // Simplify content for debugging - just use the prompt
       const contents = [enhancedPrompt]
-      
+
       console.log('Gemini Debug - Contents array:', contents)
 
       // Generate image using Gemini's native capabilities
       console.log('Gemini Debug - About to call generateContent...')
       const result = await model.generateContent(contents)
       console.log('Gemini Debug - generateContent result:', result)
-      
+
       if (!result.response) {
         throw new Error('No response from Gemini model')
       }
@@ -177,14 +177,14 @@ export class GeminiProvider extends AIProvider {
           }
           if (textResponse) break
         }
-        
+
         if (textResponse) {
           throw new Error(`Gemini não pôde gerar a imagem: ${textResponse}`)
         } else {
           throw new Error('No image data found in response')
         }
       }
-      
+
       const generationTime = Date.now() - startTime
 
       return {
@@ -206,10 +206,10 @@ export class GeminiProvider extends AIProvider {
       }
     } catch (error: any) {
       console.error('Gemini generation error:', error)
-      
+
       // More detailed error message based on the specific error
       let errorMessage = 'Image generation failed'
-      
+
       if (error.message?.includes('Invalid argument')) {
         errorMessage = 'Invalid request format for Gemini API. The model may not be available or the request format is incorrect.'
       } else if (error.message?.includes('API_KEY')) {
@@ -221,7 +221,7 @@ export class GeminiProvider extends AIProvider {
       } else {
         errorMessage = error.message || 'Image generation failed'
       }
-      
+
       return {
         success: false,
         error: errorMessage
@@ -231,7 +231,7 @@ export class GeminiProvider extends AIProvider {
 
   async validateApiKey(): Promise<boolean> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-001' })
       const result = await model.generateContent('Hello')
       return !!result.response
     } catch (error) {
@@ -262,10 +262,10 @@ export class GeminiProvider extends AIProvider {
         maxHeight: 1920,
         supportedAspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9', '2:3', '3:2'],
         supportedStyles: [
-          'photorealistic', 
-          'artistic', 
-          'cartoon', 
-          'abstract', 
+          'photorealistic',
+          'artistic',
+          'cartoon',
+          'abstract',
           'minimalist',
           'kawaii-style',
           'studio-lit',
@@ -299,19 +299,19 @@ export class GeminiProvider extends AIProvider {
 
   // Method for image editing with existing images
   async editImage(
-    prompt: string, 
-    inputImage: string | File, 
+    prompt: string,
+    inputImage: string | File,
     options?: Partial<GenerationOptions>
   ): Promise<GenerationResult> {
     try {
       const startTime = Date.now()
-      
-      const model = this.genAI.getGenerativeModel({ 
+
+      const model = this.genAI.getGenerativeModel({
         model: options?.model || 'gemini-2.5-flash-image-preview'
       })
 
       let imageData: string
-      
+
       // Handle different input types
       if (typeof inputImage === 'string') {
         // If it's a data URL, extract the base64 part
@@ -335,7 +335,7 @@ export class GeminiProvider extends AIProvider {
 
       // Generate edited image
       const result = await model.generateContent([prompt, imagePart])
-      
+
       if (!result.response) {
         throw new Error('No response from Gemini model')
       }
@@ -366,7 +366,7 @@ export class GeminiProvider extends AIProvider {
       if (!imageUrl) {
         throw new Error('No image data found in response')
       }
-      
+
       const generationTime = Date.now() - startTime
 
       return {
@@ -399,14 +399,14 @@ export class GeminiProvider extends AIProvider {
   ): Promise<GenerationResult> {
     try {
       const startTime = Date.now()
-      
-      const model = this.genAI.getGenerativeModel({ 
+
+      const model = this.genAI.getGenerativeModel({
         model: options?.model || 'gemini-2.5-flash-image-preview'
       })
 
       // Build content array for multi-turn conversation
       const contents: any[] = []
-      
+
       for (const turn of conversation) {
         if (turn.type === 'text') {
           contents.push(turn.content)
@@ -423,7 +423,7 @@ export class GeminiProvider extends AIProvider {
 
       // Generate response
       const result = await model.generateContent(contents)
-      
+
       if (!result.response) {
         throw new Error('No response from Gemini model')
       }
@@ -451,7 +451,7 @@ export class GeminiProvider extends AIProvider {
           }
         }
       }
-      
+
       const generationTime = Date.now() - startTime
 
       return {
@@ -480,21 +480,21 @@ export class GeminiProvider extends AIProvider {
     formatIds: string[]
   ): Promise<Array<GenerationResult & { formatId: string; formatInfo?: any }>> {
     const results: Array<GenerationResult & { formatId: string; formatInfo?: any }> = []
-    
+
     for (const formatId of formatIds) {
       try {
         const formatOptions = {
           ...baseOptions,
           format: formatId
         }
-        
+
         const result = await this.generateImage(formatOptions)
         results.push({
           ...result,
           formatId,
           formatInfo: FORMAT_PRESETS[formatId]
         })
-        
+
         // Add small delay between requests to avoid rate limiting
         await this.sleep(500)
       } catch (error: any) {
@@ -506,7 +506,7 @@ export class GeminiProvider extends AIProvider {
         })
       }
     }
-    
+
     return results
   }
 
