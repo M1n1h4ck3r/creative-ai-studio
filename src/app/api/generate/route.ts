@@ -6,20 +6,33 @@ import { decrypt } from '@/lib/encryption'
 import { validatePrompt, sanitizeErrorMessage } from '@/lib/security'
 import type { InsertGeneration, UpdateApiKey } from '@/types/supabase'
 
+// Helper to get API key from environment variables
+function getEnvApiKey(provider: string): string {
+  const keyMap: Record<string, string | undefined> = {
+    'gemini': process.env.GEMINI_API_KEY,
+    'openai': process.env.OPENAI_API_KEY,
+    'replicate': process.env.REPLICATE_API_TOKEN,
+    'anthropic': process.env.ANTHROPIC_API_KEY,
+    'huggingface': process.env.HUGGINGFACE_API_KEY,
+    'stability': process.env.STABILITY_API_KEY,
+  }
+  return keyMap[provider] || ''
+}
+
 export async function POST(request: NextRequest) {
   console.log('Generate API called')
   try {
     // Skip auth in development when Supabase is not available
     const isDevelopment = process.env.NODE_ENV === 'development'
     let user: any = null
-    
+
     if (!isDevelopment) {
       // Authenticate user in production
       const supabase = createServerClient()
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
-      
+
       console.log('Auth check:', { user: !!authUser, authError: !!authError })
-      
+
       if (authError || !authUser) {
         console.log('Auth failed:', authError?.message)
         return NextResponse.json(
@@ -55,7 +68,7 @@ export async function POST(request: NextRequest) {
     // Validate provider
     const validProviders = ['gemini', 'openai', 'replicate', 'anthropic', 'huggingface']
     const sanitizedProvider = provider?.toLowerCase()?.trim()
-    
+
     if (!sanitizedProvider || !validProviders.includes(sanitizedProvider)) {
       return NextResponse.json(
         { success: false, error: 'Provider inválido' },
@@ -64,7 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     let decryptedKey: string
-    
+
     if (isDevelopment) {
       // Use environment API key in development
       if (provider === 'gemini') {
@@ -77,14 +90,14 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
-      
+
       if (!decryptedKey) {
         return NextResponse.json(
           { success: false, error: `No environment API key found for ${provider}` },
           { status: 400 }
         )
       }
-      
+
       console.log(`Using environment API key for ${provider}`)
     } else {
       // Get user's API keys from database in production
@@ -95,34 +108,31 @@ export async function POST(request: NextRequest) {
         .eq('user_id', user.id)
         .eq('is_active', true)
 
-      if (keysError || !apiKeys || apiKeys.length === 0) {
-        return NextResponse.json(
-          { success: false, error: 'No API keys configured' },
-          { status: 400 }
-        )
-      }
-
       // Find the requested provider's API key
-      const providerKey = apiKeys.find((key: any) => key.provider === provider)
-      if (!providerKey) {
-        return NextResponse.json(
-          { success: false, error: `No API key found for ${provider}` },
-          { status: 400 }
-        )
+      const providerKey = apiKeys?.find((key: any) => key.provider === provider)
+
+      if (providerKey) {
+        try {
+          // Decrypt the API key
+          decryptedKey = decrypt(providerKey.encrypted_key)
+        } catch (decryptError) {
+          console.error('Decryption error:', decryptError)
+          // Fallback to environment variable if decryption fails
+          decryptedKey = getEnvApiKey(provider)
+        }
+      } else {
+        // Fallback to environment variable if no key in database
+        decryptedKey = getEnvApiKey(provider)
       }
 
-      try {
-        // Decrypt the API key
-        decryptedKey = decrypt(providerKey.encrypted_key)
-      } catch (decryptError) {
-        console.error('Decryption error:', decryptError)
+      if (!decryptedKey) {
         return NextResponse.json(
-          { success: false, error: 'Failed to access API key' },
-          { status: 500 }
+          { success: false, error: `No API key found for ${provider}. Please configure it in settings or environment variables.` },
+          { status: 400 }
         )
       }
     }
-      
+
     // Initialize provider manager with the specific provider
     const providerManager = getProviderManager()
     await providerManager.addProvider({
@@ -140,7 +150,7 @@ export async function POST(request: NextRequest) {
       geminiConfig: sanitizedProvider === 'gemini' ? geminiConfig : undefined,
       attachedFiles: sanitizedProvider === 'gemini' ? attachedFiles : undefined
     }
-    
+
     // Debug log para verificar arquivos anexados
     if (provider === 'gemini' && attachedFiles) {
       console.log('Attached files being sent to Gemini:', attachedFiles.length, 'files')
@@ -228,7 +238,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Generation API error:', error)
-    
+
     // Use sanitized error message
     const sanitizedMessage = sanitizeErrorMessage(error)
     let statusCode = 500
