@@ -35,13 +35,13 @@ function AuthContent() {
       if (isSignUp) {
         await signUp(email, password, fullName)
         toast.success('Conta criada com sucesso! Bem-vindo!')
-        router.refresh()
-        router.push(redirectTo)
+        // Force full reload to ensure session is picked up
+        window.location.href = redirectTo
       } else {
         await signIn(email, password)
         toast.success('Login realizado com sucesso!')
-        router.refresh()
-        router.push(redirectTo)
+        // Force full reload to ensure session is picked up
+        window.location.href = redirectTo
       }
     } catch (error: any) {
       toast.error(error.message || 'Erro na autenticação')
