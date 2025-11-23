@@ -41,15 +41,14 @@ export class GeminiProvider extends AIProvider {
       }
 
       // Try different models in case of issues
-      // Using Imagen 3 as default for high quality images
-      let modelName = options.model || 'imagen-3.0-generate-001'
+      // Using Gemini 2.0 Flash Experimental which supports image generation
+      let modelName = options.model || 'gemini-2.0-flash-exp'
 
       // Fallback models if the primary doesn't work
       const fallbackModels = [
-        'imagen-3.0-generate-001',
-        'imagen-3.0-fast-generate-001',
-        'gemini-1.5-pro-latest',
-        'gemini-1.5-flash-latest'
+        'gemini-2.0-flash-exp',
+        'gemini-1.5-pro',
+        'gemini-1.5-flash'
       ]
 
       let model
@@ -283,15 +282,15 @@ export class GeminiProvider extends AIProvider {
         supportsMultiTurn: true,
         supportsTextInImages: true
       },
-      models: ['imagen-3.0-generate-001', 'imagen-3.0-fast-generate-001'],
-      defaultModel: 'imagen-3.0-generate-001'
+      models: ['gemini-2.0-flash-exp', 'gemini-1.5-pro'],
+      defaultModel: 'gemini-2.0-flash-exp'
     }
   }
 
   async getAvailableModels(): Promise<string[]> {
     try {
       // Return available Gemini/Imagen image generation models
-      return ['imagen-3.0-generate-001', 'imagen-3.0-fast-generate-001', 'gemini-1.5-pro-latest']
+      return ['gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash']
     } catch (error) {
       console.error('Error fetching Gemini models:', error)
       return ['gemini-2.5-flash-image-preview']
