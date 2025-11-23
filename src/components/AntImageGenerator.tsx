@@ -91,7 +91,7 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
   const [selectedFormats, setSelectedFormats] = useState<string[]>(['instagram-square'])
   const [showFormatSelector, setShowFormatSelector] = useState(false)
   const [batchGeneration, setBatchGeneration] = useState(false)
-  
+
   // React Spring animations
   const containerAnimation = useSpring({
     from: { opacity: 0, y: 20 },
@@ -139,7 +139,7 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
   const handleFormatSelection = useCallback((selection: FormatSelection) => {
     setSelectedFormats(selection.selectedFormats)
     setBatchGeneration(selection.batchGeneration)
-    
+
     if (selection.selectedFormats.length > 0) {
       message.success(`${selection.selectedFormats.length} formato${selection.selectedFormats.length > 1 ? 's' : ''} selecionado${selection.selectedFormats.length > 1 ? 's' : ''}`)
     }
@@ -148,7 +148,7 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
   const handleGenerate = useCallback(async (values: any) => {
     setLoading(true)
     setProgress(0)
-    
+
     try {
       // Simulate progress
       const progressInterval = setInterval(() => {
@@ -195,7 +195,7 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
       })
 
       const data = await response.json()
-      
+
       clearInterval(progressInterval)
       setProgress(100)
 
@@ -237,7 +237,7 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
     })
 
     setAttachedImages(validFiles.map((file: any) => file.originFileObj).filter(Boolean))
-    
+
     // Create preview URLs
     const previewUrls = validFiles.map((file: any) => {
       if (file.originFileObj) {
@@ -245,9 +245,9 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
       }
       return file.url || file.thumbUrl
     }).filter(Boolean)
-    
+
     setImagePreviewUrls(previewUrls)
-    
+
     if (validFiles.length > 0) {
       message.success(`${validFiles.length} imagem(ns) anexada(s)`)
     }
@@ -256,18 +256,18 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
   const handleRemoveImage = (index: number) => {
     const newAttachedImages = [...attachedImages]
     const newPreviewUrls = [...imagePreviewUrls]
-    
+
     // Revoke the object URL to free memory
     if (newPreviewUrls[index]) {
       URL.revokeObjectURL(newPreviewUrls[index])
     }
-    
+
     newAttachedImages.splice(index, 1)
     newPreviewUrls.splice(index, 1)
-    
+
     setAttachedImages(newAttachedImages)
     setImagePreviewUrls(newPreviewUrls)
-    
+
     message.info('Imagem removida')
   }
 
@@ -334,18 +334,22 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
                   name="provider"
                   label="Provedor de IA"
                 >
-                  <Select size="large">
+                  <Select
+                    size="large"
+                    style={{ height: 60 }}
+                    optionLabelProp="label"
+                  >
                     {providers.map(provider => (
-                      <Option key={provider.value} value={provider.value}>
-                        <Space>
-                          <span style={{ fontSize: 16 }}>{provider.icon}</span>
-                          <div>
-                            <div>{provider.label}</div>
+                      <Option key={provider.value} value={provider.value} label={provider.label}>
+                        <div style={{ display: 'flex', alignItems: 'center', padding: '4px 0' }}>
+                          <span style={{ fontSize: 24, marginRight: 12 }}>{provider.icon}</span>
+                          <div style={{ lineHeight: 1.2 }}>
+                            <div style={{ fontWeight: 500 }}>{provider.label}</div>
                             <Text type="secondary" style={{ fontSize: 12 }}>
                               {provider.description}
                             </Text>
                           </div>
-                        </Space>
+                        </div>
                       </Option>
                     ))}
                   </Select>
@@ -438,7 +442,7 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
                           </Col>
                         ))}
                       </Row>
-                      
+
                       <Alert
                         message="💡 Dica sobre imagens"
                         description={`${attachedImages.length} imagem(ns) anexada(s). Estas imagens serão usadas como referência para a geração. Funciona melhor com o Google Gemini.`}
@@ -660,7 +664,7 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
                   <animated.div key={index} style={props}>
                     <Tag
                       color={stylePresets[index].color}
-                      style={{ 
+                      style={{
                         cursor: 'pointer',
                         margin: 0,
                         padding: '4px 8px',
