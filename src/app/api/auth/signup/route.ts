@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   try {
     const { email, password, fullName } = await request.json()
-    
+
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
@@ -13,10 +15,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Use server client with service role for admin user creation
-    const supabase = createServerClient()
-    
+    const adminSupabase = createServerClient()
+
     // Create user using admin method
-    const { data, error } = await supabase.auth.admin.createUser({
+    const { data, error } = await adminSupabase.auth.admin.createUser({
       email,
       password,
       user_metadata: {
@@ -28,7 +30,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Signup error:', error)
       return NextResponse.json(
-        { 
+        {
           error: error.message,
           details: error
         },
@@ -36,7 +38,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // After creating user, sign them in to get session
+    // After creating user, sign them in to get session using route handler client (handles cookies)
+    const supabase = createRouteHandlerClient({ cookies })
     const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -62,7 +65,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Unexpected signup error:', error)
     return NextResponse.json(
-      { 
+      {
         error: error.message || 'Internal server error'
       },
       { status: 500 }
