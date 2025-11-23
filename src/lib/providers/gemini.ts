@@ -47,13 +47,17 @@ export class GeminiProvider extends AIProvider {
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'User-Agent': 'CreativeAIStudio/1.0',
+          'Accept': 'application/json'
         },
         body: JSON.stringify(webhookPayload)
       })
 
       if (!response.ok) {
-        throw new Error(`Webhook error: ${response.status} ${response.statusText}`)
+        const errorText = await response.text()
+        console.error('N8N Webhook Error Body:', errorText)
+        throw new Error(`Webhook error: ${response.status} ${response.statusText} - ${errorText.substring(0, 200)}`)
       }
 
       const result = await response.json()
