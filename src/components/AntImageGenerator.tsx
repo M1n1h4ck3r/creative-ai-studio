@@ -146,6 +146,7 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
   }, [])
 
   const handleGenerate = useCallback(async (values: any) => {
+    console.log('handleGenerate called with values:', values)
     setLoading(true)
     setProgress(0)
 
@@ -164,6 +165,7 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
       // Convert attached images to base64 if any
       let attachedFilesData = null
       if (attachedImages.length > 0) {
+        console.log('Processing attached images...')
         attachedFilesData = await Promise.all(
           attachedImages.map(async (file) => {
             const base64 = await new Promise<string>((resolve) => {
@@ -181,20 +183,26 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
         )
       }
 
+      const payload = {
+        ...values,
+        attachedFiles: attachedFilesData,
+        format: selectedFormats[0], // Use first selected format
+        selectedFormats: batchGeneration ? selectedFormats : undefined,
+        batchGeneration
+      }
+
+      console.log('Sending payload to API:', payload)
+
       // Call the actual generation API
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...values,
-          attachedFiles: attachedFilesData,
-          format: selectedFormats[0], // Use first selected format
-          selectedFormats: batchGeneration ? selectedFormats : undefined,
-          batchGeneration
-        })
+        body: JSON.stringify(payload)
       })
 
+      console.log('API Response status:', response.status)
       const data = await response.json()
+      console.log('API Response data:', data)
 
       clearInterval(progressInterval)
       setProgress(100)
@@ -207,12 +215,13 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
         throw new Error(data.error || 'Erro na geração')
       }
     } catch (error: any) {
+      console.error('Generation error:', error)
       message.error(error.message || 'Erro ao gerar imagem')
     } finally {
       setLoading(false)
       setTimeout(() => setProgress(0), 1000)
     }
-  }, [onGenerate])
+  }, [onGenerate, attachedImages, selectedFormats, batchGeneration])
 
   const handleQuickPrompt = (prompt: string) => {
     form.setFieldsValue({ prompt })
