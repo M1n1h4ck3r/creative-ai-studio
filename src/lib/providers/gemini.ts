@@ -48,7 +48,7 @@ export class GeminiProvider extends AIProvider {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'CreativeAIStudio/1.0',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'application/json'
         },
         body: JSON.stringify(webhookPayload)
@@ -57,7 +57,14 @@ export class GeminiProvider extends AIProvider {
       if (!response.ok) {
         const errorText = await response.text()
         console.error('N8N Webhook Error Body:', errorText)
-        throw new Error(`Webhook error: ${response.status} ${response.statusText} - ${errorText.substring(0, 200)}`)
+
+        let errorMessage = `Webhook error: ${response.status} ${response.statusText}`
+        if (response.status === 403) {
+          errorMessage += ' - Verifique se o workflow está ATIVO no N8N (chave "Active" ligada).'
+        }
+        errorMessage += ` Details: ${errorText.substring(0, 200)}`
+
+        throw new Error(errorMessage)
       }
 
       const result = await response.json()
