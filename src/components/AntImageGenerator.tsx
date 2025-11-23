@@ -193,12 +193,72 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
 
       console.log('Sending payload to API:', payload)
 
-      // Call the actual generation API
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
+      console.log('Sending payload to API:', payload)
+
+      let data;
+
+      // Special handling for Gemini/N8N to bypass Cloudflare
+      if (values.provider === 'gemini') {
+        console.log('Using direct client-side webhook for Gemini/N8N')
+        const webhookUrl = 'https://n8n.futuretools.today/webhook/e9b9d53b-58b8-4d0c-9a13-0b2252f7deba'
+
+        const webhookPayload = {
+          prompt: values.prompt,
+          negativePrompt: values.negativePrompt, // Add if available in form
+          width: values.width,
+          height: values.height,
+          style: values.style, // Add if available
+          model: 'gemini-3.0-pro-image-preview',
+          attachedFiles: attachedFilesData,
+          timestamp: new Date().toISOString()
+        }
+
+        const response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(webhookPayload)
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`Webhook error: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`)
+        }
+
+        const result = await response.json()
+        console.log('N8N Webhook response:', result)
+
+        // Normalize response
+        let imageUrl = result.imageUrl || result.output || result.data
+        if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
+          imageUrl = `data:image/png;base64,${imageUrl}`
+        }
+
+        if (!imageUrl) {
+          // Fallback for testing if N8N returns just success but no image yet
+          if (result.success) {
+            message.success('Solicitação enviada ao N8N! A imagem pode demorar um pouco.')
+            return // Exit early or handle async result
+          }
+          throw new Error('Nenhuma imagem retornada pelo N8N')
+        }
+
+        data = { success: true, imageUrl }
+
+      } else {
+        // Standard API call for other providers
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+
+        console.log('API Response status:', response.status)
+        data = await response.json()
+      }
+
+      console.log('Response data:', data)
 
       console.log('API Response status:', response.status)
       const data = await response.json()
