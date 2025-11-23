@@ -23,166 +23,54 @@ export class GeminiProvider extends AIProvider {
 
       const startTime = Date.now()
 
-      // Prepare generation config with advanced controls
-      const generationConfig: any = {}
+      // Reverting to Gemini 3.0 as requested, but using Webhook
+      const modelName = options.model || 'gemini-3.0-pro-image-preview'
 
-      if (options.geminiConfig) {
-        const config = options.geminiConfig
-        if (config.temperature !== undefined) generationConfig.temperature = config.temperature
-        if (config.topP !== undefined) generationConfig.topP = config.topP
-        if (config.topK !== undefined) generationConfig.topK = config.topK
-        if (config.maxOutputTokens !== undefined) generationConfig.maxOutputTokens = config.maxOutputTokens
-        if (config.candidateCount !== undefined) generationConfig.candidateCount = config.candidateCount
-        if (config.presencePenalty !== undefined) generationConfig.presencePenalty = config.presencePenalty
-        if (config.frequencyPenalty !== undefined) generationConfig.frequencyPenalty = config.frequencyPenalty
-        if (config.stopSequences && config.stopSequences.length > 0) generationConfig.stopSequences = config.stopSequences
-        if (config.seed !== undefined) generationConfig.seed = config.seed
-        if (config.responseMimeType) generationConfig.responseMimeType = config.responseMimeType
+      // Prepare payload for N8N Webhook
+      const webhookPayload = {
+        prompt: options.prompt,
+        negativePrompt: options.negativePrompt,
+        aspectRatio: options.aspectRatio,
+        width: options.width,
+        height: options.height,
+        style: options.style,
+        model: modelName,
+        geminiConfig: options.geminiConfig,
+        attachedFiles: options.attachedFiles,
+        timestamp: new Date().toISOString()
       }
 
-      // Try different models in case of issues
-      // Using Gemini 2.0 Flash Experimental which supports image generation
-      let modelName = options.model || 'gemini-2.0-flash-exp'
+      console.log('Sending request to N8N Webhook:', webhookPayload)
 
-      // Fallback models if the primary doesn't work
-      const fallbackModels = [
-        'gemini-2.0-flash-exp',
-        'gemini-1.5-pro',
-        'gemini-1.5-flash'
-      ]
+      // Call N8N Webhook
+      const webhookUrl = 'https://n8n.futuretools.today/webhook/e9b9d53b-58b8-4d0c-9a13-0b2252f7deba'
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(webhookPayload)
+      })
 
-      let model
-      let modelUsed = modelName
-
-      try {
-        model = this.genAI.getGenerativeModel({ model: modelName })
-        console.log('Gemini Debug - Using model:', modelName)
-      } catch (modelError) {
-        console.warn('Model creation failed for', modelName, '- trying fallbacks')
-
-        for (const fallback of fallbackModels) {
-          try {
-            model = this.genAI.getGenerativeModel({ model: fallback })
-            modelUsed = fallback
-            console.log('Gemini Debug - Using fallback model:', fallback)
-            break
-          } catch (fallbackError) {
-            console.warn('Fallback model failed:', fallback, fallbackError)
-          }
-        }
-
-        if (!model) {
-          throw new Error('All Gemini models failed to initialize')
-        }
+      if (!response.ok) {
+        throw new Error(`Webhook error: ${response.status} ${response.statusText}`)
       }
 
-      // Process format information
-      let dimensions = { width: 1024, height: 1024 } // Default square
-      let aspectRatioInfo = ''
+      const result = await response.json()
+      console.log('N8N Webhook response:', result)
 
-      if (options.format && FORMAT_PRESETS[options.format]) {
-        const format = FORMAT_PRESETS[options.format]
-        dimensions = {
-          width: format.dimensions.width,
-          height: format.dimensions.height
-        }
-        aspectRatioInfo = `Format: ${format.name} (${format.aspectRatio}), optimized for: ${format.useCases.join(', ')}. `
-      } else if (options.aspectRatio) {
-        const formatDimensions = getDimensionsFromAspectRatio(options.aspectRatio)
-        dimensions = {
-          width: formatDimensions.width,
-          height: formatDimensions.height
-        }
-        aspectRatioInfo = `Aspect ratio: ${options.aspectRatio}. `
-      } else if (options.width && options.height) {
-        dimensions = {
-          width: options.width,
-          height: options.height
-        }
-        const ratio = Math.round((options.width / options.height) * 100) / 100
-        aspectRatioInfo = `Custom dimensions: ${options.width}×${options.height} (ratio: ${ratio}). `
-      }
+      // Expecting N8N to return { imageUrl: "...", ... } or similar
+      // Adjust based on actual N8N output. Assuming it returns standard generation result structure or just imageUrl.
 
-      // Build the enhanced prompt with format, style and negative prompts
-      let enhancedPrompt = options.prompt
+      let imageUrl = result.imageUrl || result.output || result.data
 
-      // Add format context to the prompt
-      if (aspectRatioInfo) {
-        enhancedPrompt = `${aspectRatioInfo}${enhancedPrompt}`
-      }
-
-      // If there are attached files, modify the prompt to be clear about image generation
-      if (options.attachedFiles && options.attachedFiles.length > 0) {
-        enhancedPrompt = `Generate a new image based on the following prompt: "${enhancedPrompt}". Use the attached image(s) as visual reference or inspiration. Create a completely new image following the description.`
-      }
-
-      if (options.style) {
-        enhancedPrompt += `, ${options.style} style`
-      }
-
-      if (options.negativePrompt) {
-        enhancedPrompt += `. Avoid: ${options.negativePrompt}`
-      }
-
-      console.log('Gemini Debug - Enhanced prompt:', enhancedPrompt)
-      console.log('Gemini Debug - Model being used:', options.model || 'gemini-2.5-flash-image-preview')
-
-      // Simplify content for debugging - just use the prompt
-      const contents = [enhancedPrompt]
-
-      console.log('Gemini Debug - Contents array:', contents)
-
-      // Generate image using Gemini's native capabilities
-      console.log('Gemini Debug - About to call generateContent...')
-      const result = await model.generateContent(contents)
-      console.log('Gemini Debug - generateContent result:', result)
-
-      if (!result.response) {
-        throw new Error('No response from Gemini model')
-      }
-
-      const response = result.response
-      const candidates = response.candidates
-
-      if (!candidates || candidates.length === 0) {
-        throw new Error('No image candidates generated')
-      }
-
-      // Extract image data from the response
-      let imageUrl: string | undefined
-      let imageData: string | undefined
-
-      for (const candidate of candidates) {
-        for (const part of candidate.content.parts) {
-          if (part.inlineData?.data) {
-            // Convert base64 data to data URL
-            const mimeType = part.inlineData.mimeType || 'image/png'
-            imageData = part.inlineData.data
-            imageUrl = `data:${mimeType};base64,${imageData}`
-            break
-          }
-        }
-        if (imageUrl) break
+      // Handle case where N8N returns base64 directly without data: prefix
+      if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
+        imageUrl = `data:image/png;base64,${imageUrl}`
       }
 
       if (!imageUrl) {
-        // Check if there's a text response explaining why no image was generated
-        let textResponse = ''
-        for (const candidate of candidates) {
-          for (const part of candidate.content.parts) {
-            if (part.text) {
-              textResponse = part.text
-              break
-            }
-          }
-          if (textResponse) break
-        }
-
-        if (textResponse) {
-          throw new Error(`Gemini não pôde gerar a imagem: ${textResponse}`)
-        } else {
-          throw new Error('No image data found in response')
-        }
+        throw new Error('No image URL returned from Webhook')
       }
 
       const generationTime = Date.now() - startTime
@@ -190,41 +78,19 @@ export class GeminiProvider extends AIProvider {
       return {
         success: true,
         imageUrl,
-        imageData, // Include raw base64 data
         metadata: {
-          model: modelUsed,
-          seed: options.seed,
-          steps: options.steps,
-          guidance: options.guidance,
+          model: modelName,
           generationTime,
           cost: 0,
-          width: dimensions.width,
-          height: dimensions.height,
-          format: options.format,
-          aspectRatio: options.aspectRatio || (options.format && FORMAT_PRESETS[options.format]?.aspectRatio)
+          ...result.metadata
         }
       }
+
     } catch (error: any) {
-      console.error('Gemini generation error:', error)
-
-      // More detailed error message based on the specific error
-      let errorMessage = 'Image generation failed'
-
-      if (error.message?.includes('Invalid argument')) {
-        errorMessage = 'Invalid request format for Gemini API. The model may not be available or the request format is incorrect.'
-      } else if (error.message?.includes('API_KEY')) {
-        errorMessage = 'Invalid or missing Gemini API key. Please check your API key configuration.'
-      } else if (error.message?.includes('quota')) {
-        errorMessage = 'Gemini API quota exceeded. Please try again later.'
-      } else if (error.message?.includes('model')) {
-        errorMessage = 'Gemini image model not available. The service may be in preview or unavailable in your region.'
-      } else {
-        errorMessage = error.message || 'Image generation failed'
-      }
-
+      console.error('Gemini/N8N generation error:', error)
       return {
         success: false,
-        error: errorMessage
+        error: error.message || 'Image generation failed via Webhook'
       }
     }
   }
@@ -282,15 +148,15 @@ export class GeminiProvider extends AIProvider {
         supportsMultiTurn: true,
         supportsTextInImages: true
       },
-      models: ['gemini-2.0-flash-exp', 'gemini-1.5-pro'],
-      defaultModel: 'gemini-2.0-flash-exp'
+      models: ['gemini-3.0-pro-image-preview', 'gemini-2.0-flash-exp'],
+      defaultModel: 'gemini-3.0-pro-image-preview'
     }
   }
 
   async getAvailableModels(): Promise<string[]> {
     try {
       // Return available Gemini/Imagen image generation models
-      return ['gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash']
+      return ['gemini-3.0-pro-image-preview', 'gemini-2.0-flash-exp']
     } catch (error) {
       console.error('Error fetching Gemini models:', error)
       return ['gemini-2.5-flash-image-preview']

@@ -33,16 +33,14 @@ function AuthContent() {
 
     try {
       if (isSignUp) {
-        const { user, session } = await signUp(email, password, fullName)
-        if (session) {
-          toast.success('Conta criada com sucesso! Bem-vindo!')
-          router.push(redirectTo)
-        } else {
-          toast.success('Conta criada! Verifique seu email para confirmar.')
-        }
+        await signUp(email, password, fullName)
+        toast.success('Conta criada com sucesso! Bem-vindo!')
+        router.refresh()
+        router.push(redirectTo)
       } else {
         await signIn(email, password)
         toast.success('Login realizado com sucesso!')
+        router.refresh()
         router.push(redirectTo)
       }
     } catch (error: any) {
