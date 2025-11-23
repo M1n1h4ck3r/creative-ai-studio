@@ -204,47 +204,83 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
 
         const webhookPayload = {
           prompt: values.prompt,
-          negativePrompt: values.negativePrompt, // Add if available in form
+          negativePrompt: values.negativePrompt,
           width: values.width,
           height: values.height,
-          style: values.style, // Add if available
+          style: values.style,
           model: 'gemini-3.0-pro-image-preview',
           attachedFiles: attachedFilesData,
           timestamp: new Date().toISOString()
         }
 
-        const response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(webhookPayload)
-        })
+        // Progressive timeout logic: 11s, then +2s, +2s...
+        let timeout = 11000 // Start with 11 seconds
+        let attempts = 0
+        const maxAttempts = 5
+        let success = false
 
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`Webhook error: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`)
-        }
+        while (!success && attempts < maxAttempts) {
+          attempts++
+          console.log(`Attempt ${attempts}: Waiting up to ${timeout / 1000}s...`)
 
-        const result = await response.json()
-        console.log('N8N Webhook response:', result)
+          try {
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), timeout)
 
-        // Normalize response
-        let imageUrl = result.imageUrl || result.output || result.data
-        if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
-          imageUrl = `data:image/png;base64,${imageUrl}`
-        }
+            const response = await fetch(webhookUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(webhookPayload),
+              signal: controller.signal
+            })
 
-        if (!imageUrl) {
-          // Fallback for testing if N8N returns just success but no image yet
-          if (result.success) {
-            message.success('Solicitação enviada ao N8N! A imagem pode demorar um pouco.')
-            return // Exit early or handle async result
+            clearTimeout(timeoutId)
+
+            if (!response.ok) {
+              const errorText = await response.text()
+              throw new Error(`Webhook error: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`)
+            }
+
+            const result = await response.json()
+            console.log('N8N Webhook response:', result)
+
+            // Normalize response
+            let imageUrl = result.imageUrl || result.output || result.data
+            if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
+              imageUrl = `data:image/png;base64,${imageUrl}`
+            }
+
+            if (imageUrl) {
+              data = { success: true, imageUrl }
+              success = true
+            } else {
+              // If success but no image, maybe it's processing? 
+              // For now, treat as failure to trigger retry or throw
+              if (result.success && !result.imageUrl) {
+                // If N8N returns success but no image, it might be an async ack.
+                // But user wants to "wait until receive image".
+                // We can't retry the SAME request to get the result.
+                // So we throw to retry (sending new request) or stop.
+                // Given the instruction, we'll assume we need to retry sending.
+                throw new Error('Nenhuma imagem retornada (tentando novamente...)')
+              }
+              throw new Error('Resposta inválida do N8N')
+            }
+
+          } catch (error: any) {
+            console.warn(`Attempt ${attempts} failed:`, error.message)
+
+            if (attempts === maxAttempts) {
+              throw error // Give up after max attempts
+            }
+
+            // Increase timeout by 2 seconds for next attempt
+            timeout += 2000
+            message.loading(`Aguardando resposta... (Tentativa ${attempts}/${maxAttempts})`, 1)
           }
-          throw new Error('Nenhuma imagem retornada pelo N8N')
         }
-
-        data = { success: true, imageUrl }
 
       } else {
         // Standard API call for other providers
