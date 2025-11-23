@@ -11,43 +11,39 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
-import { 
-  Heart, 
-  HeartOff,
-  Plus, 
-  Folder, 
-  FolderOpen,
-  Edit3,
+import {
+  Heart,
+  Plus,
   Trash2,
   MoreVertical,
   Star,
   BookOpen,
-  Grid3x3,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Loader2
 } from 'lucide-react'
 import Image from 'next/image'
 import { analytics } from '@/lib/analytics'
+import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface Collection {
   id: string
   name: string
   description?: string
   color: string
-  images: SavedImage[]
-  createdAt: number
-  updatedAt: number
-  isDefault?: boolean
+  is_default?: boolean
+  items?: CollectionItem[]
+  item_count?: number
 }
 
-interface SavedImage {
+interface CollectionItem {
   id: string
-  url: string
+  image_url: string
   prompt: string
   provider: string
-  aspectRatio?: string
+  aspect_ratio?: string
   metadata?: any
-  addedAt: number
-  isFavorite?: boolean
+  added_at: string
 }
 
 interface ImageCollectionsProps {
@@ -60,183 +56,180 @@ interface ImageCollectionsProps {
 }
 
 const defaultColors = [
-  { name: 'Blue', value: 'bg-blue-500', light: 'bg-blue-100' },
-  { name: 'Green', value: 'bg-green-500', light: 'bg-green-100' },
-  { name: 'Purple', value: 'bg-purple-500', light: 'bg-purple-100' },
-  { name: 'Orange', value: 'bg-orange-500', light: 'bg-orange-100' },
-  { name: 'Pink', value: 'bg-pink-500', light: 'bg-pink-100' },
-  { name: 'Yellow', value: 'bg-yellow-500', light: 'bg-yellow-100' },
-  { name: 'Red', value: 'bg-red-500', light: 'bg-red-100' },
-  { name: 'Indigo', value: 'bg-indigo-500', light: 'bg-indigo-100' }
+  { name: 'Blue', value: 'bg-blue-500' },
+  { name: 'Green', value: 'bg-green-500' },
+  { name: 'Purple', value: 'bg-purple-500' },
+  { name: 'Orange', value: 'bg-orange-500' },
+  { name: 'Pink', value: 'bg-pink-500' },
+  { name: 'Yellow', value: 'bg-yellow-500' },
+  { name: 'Red', value: 'bg-red-500' },
+  { name: 'Indigo', value: 'bg-indigo-500' }
 ]
 
 export const ImageCollections = ({ currentImage }: ImageCollectionsProps) => {
+  const { user } = useAuth()
   const [collections, setCollections] = useState<Collection[]>([])
+  const [loading, setLoading] = useState(true)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isAddToCollectionOpen, setIsAddToCollectionOpen] = useState(false)
-  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null)
   const [newCollection, setNewCollection] = useState({
     name: '',
     description: '',
     color: 'bg-blue-500'
   })
+  const supabase = createClient()
 
-  // Load collections from localStorage on mount
+  const fetchCollections = async () => {
+    if (!user) return
+
+    try {
+      setLoading(true)
+      const { data: collectionsData, error } = await supabase
+        .from('collections')
+        .select(`
+          *,
+          items:collection_items(*)
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      const formattedCollections = collectionsData.map((c: any) => ({
+        ...c,
+        item_count: c.items?.length || 0,
+        items: c.items || []
+      }))
+
+      setCollections(formattedCollections)
+    } catch (error) {
+      console.error('Error fetching collections:', error)
+      toast.error('Erro ao carregar coleções')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    const saved = localStorage.getItem('image-collections')
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        setCollections(parsed)
-      } catch (error) {
-        console.error('Failed to parse collections:', error)
-        // Create default favorites collection
-        createDefaultCollection()
-      }
-    } else {
-      createDefaultCollection()
-    }
-  }, [])
+    fetchCollections()
+  }, [user])
 
-  // Save collections to localStorage
-  const saveCollections = (newCollections: Collection[]) => {
-    setCollections(newCollections)
-    localStorage.setItem('image-collections', JSON.stringify(newCollections))
-  }
-
-  const createDefaultCollection = () => {
-    const defaultCollection: Collection = {
-      id: 'favorites',
-      name: 'Favoritos',
-      description: 'Suas imagens favoritas',
-      color: 'bg-red-500',
-      images: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      isDefault: true
-    }
-    saveCollections([defaultCollection])
-  }
-
-  const createCollection = () => {
+  const createCollection = async () => {
     if (!newCollection.name.trim()) {
       toast.error('Nome da coleção é obrigatório')
       return
     }
 
-    const collection: Collection = {
-      id: Date.now().toString(),
-      name: newCollection.name.trim(),
-      description: newCollection.description.trim() || undefined,
-      color: newCollection.color,
-      images: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    }
+    if (!user) return
 
-    const newCollections = [...collections, collection]
-    saveCollections(newCollections)
-    
-    analytics.user.featureUsed('collection_created', {
-      name: collection.name,
-      total_collections: newCollections.length
-    })
-
-    setNewCollection({ name: '', description: '', color: 'bg-blue-500' })
-    setIsCreateDialogOpen(false)
-    toast.success(`Coleção "${collection.name}" criada!`)
-  }
-
-  const addImageToCollection = (collectionId: string) => {
-    if (!currentImage) return
-
-    const imageToAdd: SavedImage = {
-      id: Date.now().toString(),
-      url: currentImage.url,
-      prompt: currentImage.prompt,
-      provider: currentImage.provider,
-      metadata: currentImage.metadata,
-      addedAt: Date.now(),
-      isFavorite: collectionId === 'favorites'
-    }
-
-    const newCollections = collections.map(collection => {
-      if (collection.id === collectionId) {
-        // Check if image already exists in collection
-        const exists = collection.images.some(img => 
-          img.url === imageToAdd.url && img.prompt === imageToAdd.prompt
-        )
-        
-        if (exists) {
-          toast.error('Imagem já existe nesta coleção')
-          return collection
-        }
-
-        const updatedCollection = {
-          ...collection,
-          images: [...collection.images, imageToAdd],
-          updatedAt: Date.now()
-        }
-        
-        toast.success(`Imagem adicionada à "${collection.name}"`)
-        
-        analytics.user.imageFavorited(currentImage.provider)
-        analytics.user.featureUsed('image_added_to_collection', {
-          collection_id: collectionId,
-          collection_name: collection.name,
-          provider: currentImage.provider
+    try {
+      const { data, error } = await supabase
+        .from('collections')
+        .insert({
+          user_id: user.id,
+          name: newCollection.name.trim(),
+          description: newCollection.description.trim() || null,
+          color: newCollection.color
         })
-        
-        return updatedCollection
-      }
-      return collection
-    })
+        .select()
+        .single()
 
-    saveCollections(newCollections)
-    setIsAddToCollectionOpen(false)
+      if (error) throw error
+
+      setCollections(prev => [{ ...data, items: [], item_count: 0 }, ...prev])
+
+      analytics.user.featureUsed('collection_created', {
+        name: data.name
+      })
+
+      setNewCollection({ name: '', description: '', color: 'bg-blue-500' })
+      setIsCreateDialogOpen(false)
+      toast.success(`Coleção "${data.name}" criada!`)
+    } catch (error) {
+      console.error('Error creating collection:', error)
+      toast.error('Erro ao criar coleção')
+    }
   }
 
-  const removeImageFromCollection = (collectionId: string, imageId: string) => {
-    const newCollections = collections.map(collection => {
-      if (collection.id === collectionId) {
-        return {
-          ...collection,
-          images: collection.images.filter(img => img.id !== imageId),
-          updatedAt: Date.now()
+  const addImageToCollection = async (collectionId: string) => {
+    if (!currentImage || !user) return
+
+    try {
+      // Check if image already exists in collection (client-side check for immediate feedback)
+      const collection = collections.find(c => c.id === collectionId)
+      if (collection?.items?.some(item => item.image_url === currentImage.url)) {
+        toast.error('Imagem já existe nesta coleção')
+        return
+      }
+
+      const { error } = await supabase
+        .from('collection_items')
+        .insert({
+          collection_id: collectionId,
+          user_id: user.id,
+          image_url: currentImage.url,
+          prompt: currentImage.prompt,
+          provider: currentImage.provider,
+          metadata: currentImage.metadata
+        })
+
+      if (error) {
+        if (error.code === '23505') { // Unique violation
+          toast.error('Imagem já existe nesta coleção')
+        } else {
+          throw error
         }
+        return
       }
-      return collection
-    })
 
-    saveCollections(newCollections)
-    toast.success('Imagem removida da coleção')
+      toast.success('Imagem adicionada à coleção')
+      fetchCollections() // Refresh to get updated items
+      setIsAddToCollectionOpen(false)
+
+      analytics.user.imageFavorited(currentImage.provider)
+
+    } catch (error) {
+      console.error('Error adding image to collection:', error)
+      toast.error('Erro ao salvar imagem')
+    }
   }
 
-  const deleteCollection = (collectionId: string) => {
-    if (collections.find(c => c.id === collectionId)?.isDefault) {
+  const deleteCollection = async (collectionId: string) => {
+    const collection = collections.find(c => c.id === collectionId)
+    if (collection?.is_default) {
       toast.error('Não é possível deletar a coleção padrão')
       return
     }
 
-    const newCollections = collections.filter(c => c.id !== collectionId)
-    saveCollections(newCollections)
-    toast.success('Coleção deletada')
+    try {
+      const { error } = await supabase
+        .from('collections')
+        .delete()
+        .eq('id', collectionId)
+
+      if (error) throw error
+
+      setCollections(prev => prev.filter(c => c.id !== collectionId))
+      toast.success('Coleção deletada')
+    } catch (error) {
+      console.error('Error deleting collection:', error)
+      toast.error('Erro ao deletar coleção')
+    }
   }
 
-  const downloadImage = async (image: SavedImage) => {
+  const downloadImage = async (image: CollectionItem) => {
     try {
-      if (image.url.startsWith('data:')) {
+      if (image.image_url.startsWith('data:')) {
         const a = document.createElement('a')
-        a.href = image.url
+        a.href = image.image_url
         a.download = `collection-image-${image.id}.png`
         document.body.appendChild(a)
         a.click()
         document.body.removeChild(a)
       } else {
-        const response = await fetch(image.url)
+        const response = await fetch(image.image_url)
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
-        
+
         const a = document.createElement('a')
         a.href = url
         a.download = `collection-image-${image.id}.png`
@@ -254,8 +247,15 @@ export const ImageCollections = ({ currentImage }: ImageCollectionsProps) => {
     }
   }
 
-  const totalImages = collections.reduce((sum, collection) => sum + collection.images.length, 0)
-  const favoritesCollection = collections.find(c => c.id === 'favorites')
+  const totalImages = collections.reduce((sum, c) => sum + (c.item_count || 0), 0)
+
+  if (loading && collections.length === 0) {
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -270,19 +270,23 @@ export const ImageCollections = ({ currentImage }: ImageCollectionsProps) => {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex gap-2">
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 variant="outline"
-                onClick={() => addImageToCollection('favorites')}
+                onClick={() => {
+                  const favorites = collections.find(c => c.is_default)
+                  if (favorites) addImageToCollection(favorites.id)
+                }}
                 className="flex-1"
+                disabled={loading}
               >
                 <Heart className="w-3 h-3 mr-1" />
                 Adicionar aos Favoritos
               </Button>
-              
+
               <Dialog open={isAddToCollectionOpen} onOpenChange={setIsAddToCollectionOpen}>
                 <DialogTrigger asChild>
-                  <Button size="sm" variant="outline">
+                  <Button size="sm" variant="outline" disabled={loading}>
                     <Plus className="w-3 h-3 mr-1" />
                     Coleção
                   </Button>
@@ -296,7 +300,7 @@ export const ImageCollections = ({ currentImage }: ImageCollectionsProps) => {
                   </DialogHeader>
                   <div className="space-y-3">
                     {collections.map(collection => (
-                      <div 
+                      <div
                         key={collection.id}
                         className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
                         onClick={() => addImageToCollection(collection.id)}
@@ -306,12 +310,12 @@ export const ImageCollections = ({ currentImage }: ImageCollectionsProps) => {
                           <div>
                             <p className="font-medium">{collection.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {collection.images.length} imagens
+                              {collection.item_count} imagens
                             </p>
                           </div>
                         </div>
                         <Badge variant="outline">
-                          {collection.images.length}
+                          {collection.item_count}
                         </Badge>
                       </div>
                     ))}
@@ -336,7 +340,7 @@ export const ImageCollections = ({ currentImage }: ImageCollectionsProps) => {
                 {collections.length} coleções • {totalImages} imagens salvas
               </CardDescription>
             </div>
-            
+
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm">
@@ -358,42 +362,41 @@ export const ImageCollections = ({ currentImage }: ImageCollectionsProps) => {
                       id="name"
                       placeholder="Ex: Natureza, Retratos, Abstratos..."
                       value={newCollection.name}
-                      onChange={(e) => setNewCollection({...newCollection, name: e.target.value})}
+                      onChange={(e) => setNewCollection({ ...newCollection, name: e.target.value })}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="description">Descrição (opcional)</Label>
                     <Textarea
                       id="description"
                       placeholder="Descreva o tema ou propósito desta coleção..."
                       value={newCollection.description}
-                      onChange={(e) => setNewCollection({...newCollection, description: e.target.value})}
+                      onChange={(e) => setNewCollection({ ...newCollection, description: e.target.value })}
                     />
                   </div>
-                  
+
                   <div>
                     <Label>Cor da Coleção</Label>
                     <div className="flex gap-2 mt-2">
                       {defaultColors.map(color => (
                         <button
                           key={color.value}
-                          className={`w-8 h-8 rounded-full ${color.value} ${
-                            newCollection.color === color.value ? 'ring-2 ring-primary ring-offset-2' : ''
-                          }`}
-                          onClick={() => setNewCollection({...newCollection, color: color.value})}
+                          className={`w-8 h-8 rounded-full ${color.value} ${newCollection.color === color.value ? 'ring-2 ring-primary ring-offset-2' : ''
+                            }`}
+                          onClick={() => setNewCollection({ ...newCollection, color: color.value })}
                         />
                       ))}
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-2 pt-4">
                     <Button onClick={createCollection} className="flex-1">
                       <Plus className="w-4 h-4 mr-2" />
                       Criar Coleção
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={() => setIsCreateDialogOpen(false)}
                     >
                       Cancelar
@@ -404,7 +407,7 @@ export const ImageCollections = ({ currentImage }: ImageCollectionsProps) => {
             </Dialog>
           </div>
         </CardHeader>
-        
+
         <CardContent>
           <ScrollArea className="h-96">
             <div className="space-y-4">
@@ -416,20 +419,20 @@ export const ImageCollections = ({ currentImage }: ImageCollectionsProps) => {
                       <div>
                         <h4 className="font-medium flex items-center gap-2">
                           {collection.name}
-                          {collection.isDefault && <Star className="w-3 h-3 text-yellow-500" />}
+                          {collection.is_default && <Star className="w-3 h-3 text-yellow-500" />}
                         </h4>
                         {collection.description && (
                           <p className="text-xs text-muted-foreground">{collection.description}</p>
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">
-                        {collection.images.length} imagens
+                        {collection.item_count} imagens
                       </Badge>
-                      
-                      {!collection.isDefault && (
+
+                      {!collection.is_default && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button size="sm" variant="ghost">
@@ -446,13 +449,13 @@ export const ImageCollections = ({ currentImage }: ImageCollectionsProps) => {
                       )}
                     </div>
                   </div>
-                  
-                  {collection.images.length > 0 ? (
+
+                  {collection.items && collection.items.length > 0 ? (
                     <div className="grid grid-cols-4 gap-2">
-                      {collection.images.slice(0, 4).map(image => (
+                      {collection.items.slice(0, 4).map(image => (
                         <div key={image.id} className="relative aspect-square group">
                           <Image
-                            src={image.url}
+                            src={image.image_url}
                             alt={image.prompt.slice(0, 50)}
                             fill
                             className="object-cover rounded-md"
@@ -468,10 +471,10 @@ export const ImageCollections = ({ currentImage }: ImageCollectionsProps) => {
                           </div>
                         </div>
                       ))}
-                      {collection.images.length > 4 && (
+                      {collection.items.length > 4 && (
                         <div className="aspect-square bg-muted rounded-md flex items-center justify-center">
                           <span className="text-xs font-medium text-muted-foreground">
-                            +{collection.images.length - 4}
+                            +{collection.items.length - 4}
                           </span>
                         </div>
                       )}
