@@ -1,7 +1,25 @@
+import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { createServerClient } from '@/lib/supabase'
+import { getProviderManager } from '@/lib/providers/manager'
+import { ProviderType, GenerationOptions } from '@/lib/providers/types'
+import { decrypt } from '@/lib/encryption'
+import { validatePrompt, sanitizeErrorMessage } from '@/lib/security'
+import type { InsertGeneration, UpdateApiKey } from '@/types/supabase'
 
-// ... imports
+// Helper to get API key from environment variables
+function getEnvApiKey(provider: string): string {
+  const keyMap: Record<string, string | undefined> = {
+    'gemini': process.env.GEMINI_API_KEY,
+    'openai': process.env.OPENAI_API_KEY,
+    'replicate': process.env.REPLICATE_API_TOKEN,
+    'anthropic': process.env.ANTHROPIC_API_KEY,
+    'huggingface': process.env.HUGGINGFACE_API_KEY,
+    'stability': process.env.STABILITY_API_KEY,
+  }
+  return keyMap[provider] || ''
+}
 
 export async function POST(request: NextRequest) {
   console.log('Generate API called')
