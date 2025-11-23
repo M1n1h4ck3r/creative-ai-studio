@@ -260,9 +260,7 @@ export function AntImageGenerator({ onGenerate }: AntImageGeneratorProps) {
 
       console.log('Response data:', data)
 
-      console.log('API Response status:', response.status)
-      const data = await response.json()
-      console.log('API Response data:', data)
+
 
       clearInterval(progressInterval)
       setProgress(100)
